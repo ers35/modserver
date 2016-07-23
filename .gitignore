@@ -1,0 +1,13 @@
+old
+.old
+old.txt
+todo.txt
+note.txt
+*.o
+*.so
+*.a
+__pycache__
+src/dep/lua-5.2.4/src/lua
+src/dep/lua-5.2.4/src/luac
+src/modserver
+src/modserver.lua.c

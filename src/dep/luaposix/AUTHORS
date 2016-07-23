@@ -1,0 +1,13 @@
+luaposix is the work of several authors (see git history for
+contributors). It is based on two earlier libraries:
+
+An earlier version of luaposix (up to 5.1.11)
+
+  Copyright Reuben Thomas <rrt@sc3d.org> 2010-2011
+  Copyright Natanael Copa <natanael.copa@gmail.com> 2008-2010
+  Clean up and bug fixes by Leo Razoumov <slonik.az@gmail.com> 2006-10-11
+  Luiz Henrique de Figueiredo <lhf@tecgraf.puc-rio.br> 07 Apr 2006 23:17:49
+  Based on original by Claudio Terra for Lua 3.x, with contributions
+  by Roberto Ierusalimschy.
+
+John Belmonte <jvb@prairienet.org> wrote the example program tree.lua.
