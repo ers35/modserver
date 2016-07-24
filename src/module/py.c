@@ -12,26 +12,116 @@
 // Local
 #include "modserver.h"
 
-static PyObject* api_rwrite(PyObject *self, PyObject *args)
+static void pyassert(int success)
 {
-  PyObject *capsule;
-  const char *reply;
-  int reply_length;
-  if (!PyArg_ParseTuple(args, "Os#", &capsule, &reply, &reply_length))
+  if (!success)
   {
     PyErr_Print();
   }
+}
+
+static servlet* get_servlet(PyObject *capsule)
+{
   assert(capsule);
   const char *name = PyCapsule_GetName(capsule);
   assert(name);
   servlet *s = PyCapsule_GetPointer(capsule, "servlet*");
   assert(s);
-  rwrite(s, reply, reply_length);
+  return s;
+}
+
+static PyObject* api_get_arg(PyObject *self, PyObject *args)
+{
+  PyObject *capsule;
+  const char *name;
+  pyassert(PyArg_ParseTuple(args, "Os", &capsule, &name));
+  servlet *s = get_servlet(capsule);
+  const char *value = get_arg(s, name);
+  PyObject *value_obj = Py_BuildValue("s", value);
+  return value_obj;
+}
+
+static PyObject* api_get_method(PyObject *self, PyObject *args)
+{
+  PyObject *capsule;
+  pyassert(PyArg_ParseTuple(args, "O", &capsule));
+  servlet *s = get_servlet(capsule);
+  const char *method = get_method(s);
+  PyObject *method_obj = Py_BuildValue("s", method);
+  return method_obj;
+}
+
+static PyObject* api_get_header(PyObject *self, PyObject *args)
+{
+  PyObject *capsule;
+  const char *key;
+  pyassert(PyArg_ParseTuple(args, "Os", &capsule, &key));
+  servlet *s = get_servlet(capsule);
+  const char *value = get_header(s, key);
+  PyObject *value_obj = Py_BuildValue("s", value);
+  return value_obj;
+}
+
+static PyObject* api_set_status(PyObject *self, PyObject *args)
+{
+  PyObject *capsule;
+  int status;
+  pyassert(PyArg_ParseTuple(args, "Oi", &capsule, &status));
+  servlet *s = get_servlet(capsule);
+  set_status(s, status);
+  Py_RETURN_NONE;
+}
+
+static PyObject* api_set_header(PyObject *self, PyObject *args)
+{
+  PyObject *capsule;
+  const char *key;
+  const char *value;
+  pyassert(PyArg_ParseTuple(args, "Oss", &capsule, &key, &value));
+  servlet *s = get_servlet(capsule);
+  set_header(s, key, value);
+  Py_RETURN_NONE;
+}
+
+static PyObject* api_set_content_length(PyObject *self, PyObject *args)
+{
+  PyObject *capsule;
+  unsigned long length;
+  pyassert(PyArg_ParseTuple(args, "OI", &capsule, &length));
+  servlet *s = get_servlet(capsule);
+  set_content_length(s, length);
+  Py_RETURN_NONE;
+}
+
+static PyObject* api_rwrite(PyObject *self, PyObject *args)
+{
+  PyObject *capsule;
+  const char *reply;
+  int length;
+  pyassert(PyArg_ParseTuple(args, "Os#", &capsule, &reply, &length));
+  servlet *s = get_servlet(capsule);
+  rwrite(s, reply, length);
+  Py_RETURN_NONE;
+}
+
+static PyObject* api_rflush(PyObject *self, PyObject *args)
+{
+  PyObject *capsule;
+  pyassert(PyArg_ParseTuple(args, "O", &capsule));
+  servlet *s = get_servlet(capsule);
+  rflush(s);
   Py_RETURN_NONE;
 }
 
 static PyMethodDef api_methods[] = {
+  {"get_arg", api_get_arg, METH_VARARGS, "m_doc: get_arg"},
+  {"get_method", api_get_method, METH_VARARGS, "m_doc: get_method"},
+  {"get_header", api_get_header, METH_VARARGS, "m_doc: get_header"},
+  {"set_status", api_set_status, METH_VARARGS, "m_doc: set_status"},
+  {"set_header", api_set_header, METH_VARARGS, "m_doc: set_header"},
+  {"set_content_length", api_set_content_length, METH_VARARGS, "m_doc: set_content_length"},
   {"rwrite", api_rwrite, METH_VARARGS, "m_doc: rwrite"},
+  {"rflush", api_rflush, METH_VARARGS, "m_doc: rflush"},
   {NULL, NULL, 0, NULL}
 };
 
