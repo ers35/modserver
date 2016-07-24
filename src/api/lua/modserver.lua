@@ -4,6 +4,8 @@ languages that can call C. Additional API wrappers are available for other langu
 --]]
 local api = {}
 
+local http = require("http")
+
 function api:get_arg(name)
   return self.request.args[name]
 end
@@ -28,11 +30,6 @@ function api:get_header(key)
   return self.request.headers[key:lower()]
 end
 
-local strstatus = {
-  [200] = "OK",
-  [404] = "Not Found",
-}
-
 function api:write_headers()
   local f = self.clientfd_write
   if self.content_length then
@@ -41,7 +38,8 @@ function api:write_headers()
     self:set_header("Transfer-Encoding", "chunked")
   end
   local status = self.status or 200
-  local status_line = ("HTTP/1.1 %u %s\r\n"):format(status, strstatus[status] or "")
+  local status_line 
+    = ("HTTP/1.1 %u %s\r\n"):format(status, http.reason_phrase[status] or "")
   f:write(status_line)
   self:set_header("Server", "modserver")
   if not self.headers["content-type"] then
