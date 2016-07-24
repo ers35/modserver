@@ -35,8 +35,16 @@ load_servlet() function that know how to load a particular type of servlet.
 
 Modules follow the format used by Lua's require() function:
 http://www.lua.org/manual/5.2/manual.html#6.3
+
+Example:
+load_module ("module.lua", "lua")
+load_module ("module.lua", {"lua", "luac"})
 --]]
-function config.load_module(path)
+function config.load_module(path, extensions)
+  assert(extensions, "load_module must have a second argument")
+  if type(extensions) == "string" then
+    extensions = {extensions}
+  end
   local ok, mod = pcall(require, path)
   if ok and mod then
     assert(type(mod) == "table", "error loading module: " .. path)
@@ -44,8 +52,9 @@ function config.load_module(path)
       mod.init()
     end
     assert(mod.load_servlet, "this module needs a load_servlet() function: " .. path)
-    local extension = path:match("module%.(.+)")
-    config.modules[extension] = mod
+    for i, extension in ipairs(extensions) do
+      config.modules[extension] = mod
+    end
     print([[load_module "]] .. path .. [["]])
   else
     -- Print the error.
@@ -59,6 +68,9 @@ define three functions:
   init() is called the first time the servlet is requested and is optional.
   run() is called each time the servlet is requested and must be defined.
   cleanup() is called before the process containing the servlet exits and is optional.
+  
+Example:
+load_servlet "example/lua/servlet.lua"
 --]]
 function config.load_servlet(path, route)
   route = route or "/" .. path

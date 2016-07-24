@@ -94,7 +94,7 @@ static int mod_cleanup(lua_State *l)
   return 0;
 }
 
-static const luaL_Reg module_rb[] = 
+static const luaL_Reg module_ruby[] = 
 {
   {"init", mod_init},
   {"load_servlet", mod_load_servlet},
@@ -102,9 +102,9 @@ static const luaL_Reg module_rb[] =
   {NULL, NULL},
 };
 
-LUALIB_API int luaopen_module_rb(lua_State *l)
+LUALIB_API int luaopen_module_ruby(lua_State *l)
 {
-  luaL_newlib(l, module_rb);
+  luaL_newlib(l, module_ruby);
   return 1;
 }
 
@@ -116,26 +116,3 @@ LUALIB_API int luaopen_module_rb(lua_State *l)
 // https://fossies.org/linux/www/elinks-0.12pre6.tar.gz/elinks-0.12pre6/src/scripting/ruby/core.c
 // "Re: Loading a module without polluting my namespace"
 // https://www.ruby-forum.com/topic/211449#918804
-
-// load("hello.rb", true)
-
-#if 0  
-  // int state;
-  // VALUE result;
-  // result = rb_eval_string_protect("puts 'Hello, world!'", &state);
-  // path must begin with ./
-  VALUE script = rb_str_new_cstr(path);
-  int status;
-  // the second argument means wrap the loaded code in an anonymous module
-  rb_load_protect(script, 1, &status);
-  if (status != 0)
-  {
-    VALUE rbError = rb_funcall(rb_gv_get("$!"), rb_intern("message"), 0);
-    return luaL_error(l, "rb_load_protect: %s", StringValuePtr(rbError));
-  }
-  VALUE servlet = rb_gv_get("$servlet_run");
-  // printf("%lu\n", servlet);
-  rb_funcall(servlet, rb_intern("call"), 0);
-  VALUE result = rb_eval_string_protect("$servlet_run = nil", &status);
-  return 0;
-#endif

@@ -56,15 +56,15 @@ cutil.a: util.c
 # Modules
 
 module: \
-	module/py.so \
-	module/rb.so
+	module/python.so \
+	module/ruby.so
 
-module/py.so: PYTHON := $(shell pkg-config --cflags --libs python3)
-module/py.so: module/py.c
+module/python.so: PYTHON := $(shell pkg-config --cflags --libs python3)
+module/python.so: module/python.c
 	cc -std=c99 -fPIC -shared $(LDFLAGS) $+ $(LDLIBS) -Iapi/c -I$(LUASRC) \
 		$(PYTHON) -o $@ || true
-module/rb.so: RUBY := $(shell pkg-config --cflags --libs ruby)
-module/rb.so: module/rb.c
+module/ruby.so: RUBY := $(shell pkg-config --cflags --libs ruby)
+module/ruby.so: module/ruby.c
 	cc -std=c99 -fPIC -shared $(LDFLAGS) $+ $(LDLIBS) -Iapi/c -I$(LUASRC) \
 		$(RUBY) -o $@ || true
 

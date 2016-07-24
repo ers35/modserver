@@ -201,7 +201,7 @@ static int mod_cleanup(lua_State *l)
   return 0;
 }
 
-static const luaL_Reg module_py[] = 
+static const luaL_Reg module_python[] = 
 {
   {"init", mod_init},
   {"load_servlet", mod_load_servlet},
@@ -209,9 +209,9 @@ static const luaL_Reg module_py[] =
   {NULL, NULL},
 };
 
-LUALIB_API int luaopen_module_py(lua_State *l)
+LUALIB_API int luaopen_module_python(lua_State *l)
 {
-  luaL_newlib(l, module_py);
+  luaL_newlib(l, module_python);
   return 1;
 }
 
