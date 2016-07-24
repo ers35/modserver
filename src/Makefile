@@ -80,6 +80,7 @@ example: example/c/hello.c.so \
 	example/c++/hello.cpp.so \
 	example/d/hello.d.so \
 	example/go/hello.go.so \
+	example/go/test.go.so \
 	example/haskell/hello.hs.so \
 	example/nim/hello.nim.so \
 	example/nim/test.nim.so \
@@ -101,8 +102,10 @@ example/c++/hello.cpp.so: example/c++/hello.cpp
 example/d/hello.d.so: example/d/hello.d
 	ldc2 -shared $+ -Iapi/d -od=example/d/ -of $@ || true
 PWD = $(shell pwd)
-example/go/hello.go.so: GOPATH = $(PWD)/api/go
+GOPATH = $(PWD)/api/go
 example/go/hello.go.so: example/go/hello.go
+	GOPATH=$(GOPATH) go build -buildmode=c-shared -o $@ $+ || true
+example/go/test.go.so: example/go/test.go
 	GOPATH=$(GOPATH) go build -buildmode=c-shared -o $@ $+ || true
 example/haskell/hello.hs.so: example/haskell/hello.hs example/haskell/hello_stub.c
 	ghc --make -dynamic -shared -fPIC -Iapi/c -I/usr/lib/ghc/include \
