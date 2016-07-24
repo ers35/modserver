@@ -48,6 +48,7 @@ The API is documented in [modserver.h](src/api/c/modserver.h).
 There are example hello world applications in a variety of programming languages:
 - [C](src/example/c/hello.c)
 - [C++](src/example/c++/hello.cpp)
+- [Crystal](src/example/crystal/hello.cr)
 - [CGI](src/example/cgi/hello.cgi)
 - [D](src/example/d/hello.d)
 - [Go](src/example/go/hello.go)

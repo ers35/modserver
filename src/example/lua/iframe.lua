@@ -19,6 +19,7 @@ iframe {
   local servlets = {
     "/example/c/hello.c.so",
     "/example/c++/hello.cpp.so",
+    "/example/crystal/hello.cr.so",
     "/example/cgi/hello.cgi",
     "/example/d/hello.d.so",
     "/example/go/hello.go.so",

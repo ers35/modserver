@@ -78,6 +78,8 @@ example: example/c/hello.c.so \
 	example/c/file.c.so \
 	example/c/segfault.c.so \
 	example/c++/hello.cpp.so \
+	example/crystal/hello.cr.so \
+	example/crystal/test.cr.so \
 	example/d/hello.d.so \
 	example/go/hello.go.so \
 	example/go/test.go.so \
@@ -99,6 +101,10 @@ example/c/segfault.c.so: example/c/segfault.c
 	cc $(CFLAGS) $(LDFLAGS) $(LDFLAGS) $+ -o $@
 example/c++/hello.cpp.so: example/c++/hello.cpp
 	c++ $(CPPFLAGS) $(LDFLAGS) $(LDFLAGS) $+ -o $@
+example/crystal/hello.cr.so: example/crystal/hello.cr
+	crystal build --single-module --link-flags="-shared" $+ -o $@
+example/crystal/test.cr.so: example/crystal/test.cr
+	crystal build --single-module --link-flags="-shared" $+ -o $@
 example/d/hello.d.so: example/d/hello.d
 	ldc2 -shared $+ -Iapi/d -od=example/d/ -of $@ || true
 PWD = $(shell pwd)
