@@ -63,7 +63,11 @@ module/python.so: PYTHON := $(shell pkg-config --cflags --libs python3)
 module/python.so: module/python.c
 	cc -std=c99 -fPIC -shared $(LDFLAGS) $+ $(LDLIBS) -Iapi/c -I$(LUASRC) \
 		$(PYTHON) -o $@ || true
-module/ruby.so: RUBY := $(shell pkg-config --cflags --libs ruby)
+module/ruby.so: RUBY := $(shell \
+	pkg-config --cflags --libs ruby || \
+	pkg-config --cflags --libs ruby-2.2 || \
+	pkg-config --cflags --libs ruby-2.3 \
+)
 module/ruby.so: module/ruby.c
 	cc -std=c99 -fPIC -shared $(LDFLAGS) $+ $(LDLIBS) -Iapi/c -I$(LUASRC) \
 		$(RUBY) -o $@ || true
