@@ -42,7 +42,9 @@ See [config.conf](src/config.conf) for an example configuration file and
 The server listens on port 8080 by default: http://127.0.0.1:8080/
 
 ## API
-The API is documented in [modserver.h](src/api/c/modserver.h).
+The C API is documented in [modserver.h](src/api/c/modserver.h).
+
+See the [api](src/api/) directory for bindings for other languages.
 
 ## Languages
 There are example hello world applications in a variety of programming languages:
