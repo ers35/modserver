@@ -113,9 +113,11 @@ example/go/hello.go.so: example/go/hello.go
 	GOPATH=$(GOPATH) go build -buildmode=c-shared -o $@ $+ || true
 example/go/test.go.so: example/go/test.go
 	GOPATH=$(GOPATH) go build -buildmode=c-shared -o $@ $+ || true
+example/haskell/hello.hs.so: HASKELL := -L$(shell ghc --print-libdir)/rts \
+	-lHSrts-ghc$(shell ghc --numeric-version)
 example/haskell/hello.hs.so: example/haskell/hello.hs example/haskell/hello_stub.c
 	ghc --make -dynamic -shared -fPIC -Iapi/c -I/usr/lib/ghc/include \
-		-lHSrts_thr-ghc7.10.3 $+ -o $@ || true
+		$(HASKELL) $+ -o $@ || true
 example/nim/hello.nim.so: example/nim/hello.nim
 	nim compile --app:lib -p=api/nim --out=$@ $+ || true
 example/nim/test.nim.so: example/nim/test.nim
