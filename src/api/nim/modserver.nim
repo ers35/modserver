@@ -7,7 +7,6 @@ proc get_method*(s: PServlet): cstring{.cdecl, importc: "get_method".}
 proc get_header*(s: PServlet, key: cstring): cstring{.cdecl, importc: "get_header".}
 proc set_status*(s: PServlet, status: int32): void{.cdecl, importc: "set_status".}
 proc set_header*(s: PServlet, key: cstring, value: cstring): void{.cdecl, importc: "set_header".}
-proc set_content_length*(s: PServlet, length: int32): void{.cdecl, importc: "set_content_length".}
 proc rwrite*(s: PServlet, buffer: cstring, length: int): void{.cdecl, importc: "rwrite".}
 proc rprintf*(s: PServlet, format: cstring): int32{.cdecl, varargs, importc: "rprintf".}
 proc rflush*(s: PServlet): void{.cdecl, importc: "rflush".}

@@ -77,6 +77,7 @@ example: example/c/hello.c.so \
 	example/c/arg.c.so \
 	example/c/file.c.so \
 	example/c/segfault.c.so \
+	example/c/content-length.c.so \
 	example/c++/hello.cpp.so \
 	example/crystal/hello.cr.so \
 	example/crystal/test.cr.so \
@@ -98,6 +99,8 @@ example/c/arg.c.so: example/c/arg.c
 example/c/file.c.so: example/c/file.c
 	cc $(CFLAGS) $(LDFLAGS) $(LDFLAGS) $+ -o $@
 example/c/segfault.c.so: example/c/segfault.c
+	cc $(CFLAGS) $(LDFLAGS) $(LDFLAGS) $+ -o $@
+example/c/content-length.c.so: example/c/content-length.c
 	cc $(CFLAGS) $(LDFLAGS) $(LDFLAGS) $+ -o $@
 example/c++/hello.cpp.so: example/c++/hello.cpp
 	c++ $(CPPFLAGS) $(LDFLAGS) $(LDFLAGS) $+ -o $@

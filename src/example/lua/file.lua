@@ -5,7 +5,7 @@ function servlet:run()
   if f then
     local length = f:seek("end")
     f:seek("set")
-    self:set_content_length(length)
+    self:set_header("Content-Length", tostring(length))
     self:set_header("Content-Type", "text/plain; charset=UTF-8");
     while true do
       local buf = f:read(4096)

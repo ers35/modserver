@@ -9,7 +9,6 @@ end
 fun run = run(s: Modserver::Servlet*): Int32
   Modserver.set_status(s, 200)
   Modserver.set_header(s, "Content-Type", "text/plain; charset=UTF-8")
-  #Modserver.set_content_length(s, 5)
   arg = Modserver.get_arg(s, "arg")
   if arg
     Modserver.rprintf(s, "%s\n", arg)

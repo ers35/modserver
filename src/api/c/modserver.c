@@ -68,14 +68,6 @@ void set_status(lua_State *l, int status)
   lua_call(l, 2, 0);
 }
 
-void set_content_length(lua_State *l, int length)
-{
-  lua_getfield(l, -1, "set_content_length");
-  lua_pushvalue(l, 1);
-  lua_pushnumber(l, length);
-  lua_call(l, 2, 0);
-}
-
 void rwrite(lua_State *l, const char *buffer, size_t length)
 {
   lua_getfield(l, -1, "rwrite");
@@ -122,9 +114,10 @@ int rprintf(lua_State *l, const char *format, ...)
   {
     return len;
   }
-  lua_getfield(l, -1, "content_length");
+  lua_getfield(l, -1, "headers");
+  lua_getfield(l, -1, "content-length");
   int chunked = !lua_toboolean(l, -1);
-  lua_pop(l, 1);
+  lua_pop(l, 2);
   if (chunked)
   {
     ret = fprintf(f, "%X\r\n", len);

@@ -8,7 +8,6 @@ extern (C)
   const(char)* get_header(servlet *s, const char *key);
   void set_status(servlet *s, int status);
   void set_header(servlet *s, const char *key, const char *value);
-  void set_content_length(servlet *s, size_t length);
   void rwrite(servlet *s, const char *buffer, size_t length);
   int rprintf(servlet *s, const char *format, ...);
   void rflush(servlet *s);

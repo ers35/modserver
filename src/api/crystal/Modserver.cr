@@ -6,7 +6,6 @@ lib Modserver
   fun get_header(s: Servlet*, key: UInt8*) : UInt8*
   fun set_status(s: Servlet*, status: Int32) : Void
   fun set_header(s: Servlet*, key: UInt8*, value: UInt8*) : Void
-  fun set_content_length(s: Servlet*, length: Int32) : Void
   fun rwrite(s: Servlet*, buffer: UInt8*, length: UInt32) : Void
   fun rprintf(s: Servlet*, format: UInt8*, ...) : Int32
   fun rflush(s: Servlet*) : Void

@@ -9,7 +9,9 @@ int run(servlet *s)
     fseek(f, 0, SEEK_END);
     long length = ftell(f);
     rewind(f);
-    set_content_length(s, length);
+    char str_length[128];
+    snprintf(str_length, sizeof(str_length), "%lu", length);
+    set_header(s, "Content-Length", str_length);
     set_header(s, "Content-Type", "text/plain; charset=UTF-8");
     char buf[BUFSIZ];
     while (1)

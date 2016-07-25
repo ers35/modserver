@@ -83,16 +83,6 @@ static PyObject* api_set_header(PyObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
-static PyObject* api_set_content_length(PyObject *self, PyObject *args)
-{
-  PyObject *capsule;
-  unsigned long length;
-  pyassert(PyArg_ParseTuple(args, "OI", &capsule, &length));
-  servlet *s = get_servlet(capsule);
-  set_content_length(s, length);
-  Py_RETURN_NONE;
-}
-
 static PyObject* api_rwrite(PyObject *self, PyObject *args)
 {
   PyObject *capsule;
@@ -119,7 +109,6 @@ static PyMethodDef api_methods[] = {
   {"get_header", api_get_header, METH_VARARGS, "m_doc: get_header"},
   {"set_status", api_set_status, METH_VARARGS, "m_doc: set_status"},
   {"set_header", api_set_header, METH_VARARGS, "m_doc: set_header"},
-  {"set_content_length", api_set_content_length, METH_VARARGS, "m_doc: set_content_length"},
   {"rwrite", api_rwrite, METH_VARARGS, "m_doc: rwrite"},
   {"rflush", api_rflush, METH_VARARGS, "m_doc: rflush"},
   {NULL, NULL, 0, NULL}

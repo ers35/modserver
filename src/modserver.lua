@@ -212,7 +212,7 @@ function main.handle_request(clientfd)
       -- The servlet did not write any body. Write an empty body.
       state:rwrite("")
     end
-    if not state.content_length then
+    if not state.headers["content-length"] then
       -- Send the last chunk of the chunked response.
       state.clientfd_write:write("0\r\n\r\n")
       state.clientfd_write:flush()

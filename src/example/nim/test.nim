@@ -7,8 +7,6 @@ proc run(s: PServlet): int{.exportc.} =
   set_header(s, "Content-Type", "text/plain; charset=UTF-8")
   rflush(s)
   
-  #set_content_length(s, 5)
-
   var arg = get_arg(s, "test")
   if arg != nil:
     discard rprintf(s, "get_arg(s, \"test\") = %s\n", arg)

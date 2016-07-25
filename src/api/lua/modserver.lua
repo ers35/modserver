@@ -22,19 +22,13 @@ function api:set_header(key, value)
   self.headers[key:lower()] = {key = key, value = value}
 end
 
-function api:set_content_length(length)
-  self.content_length = length
-end
-
 function api:get_header(key)
   return self.request.headers[key:lower()]
 end
 
 function api:write_headers()
   local f = self.clientfd_write
-  if self.content_length then
-    self:set_header("Content-Length", self.content_length)
-  else
+  if not self.headers["content-length"] then
     self:set_header("Transfer-Encoding", "chunked")
   end
   local status = self.status or 200
@@ -73,7 +67,7 @@ function api:rwrite(buffer)
   if self:get_method() == "HEAD" then
     return
   end
-  if not self.content_length then
+  if not self.headers["content-length"] then
     write_chunk(f, buffer)
   else
     f:write(buffer)

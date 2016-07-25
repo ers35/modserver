@@ -71,30 +71,22 @@ Internal copies are made of the key and value.
 
 // Example:
 set_header(s, "Set-Cookie", "key=value");
+
 set_header(s, "Content-Type", "text/plain; charset=UTF-8");
+
+unsigned length = 42;
+char str_length[128];
+snprintf(str_length, sizeof(str_length), "%u", length);
+set_header(s, "Content-Length", str_length);
 */
 void set_header(servlet *s, const char *key, const char *value);
-
-/*
-Set the Content-Length header.
-
-Chunked transfer encoding is used by default when the Content-Length is not set.
-
-// Example:
-const char reply[] = "hello";
-size_t length = sizeof(reply) - 1;
-set_content_length(s, length);
-rwrite(s, reply);
-*/
-void set_content_length(servlet *s, size_t length);
 
 /*
 Write the given buffer to the output stream.
 
 The first write to the output stream generates the HTTP status line and headers. Further 
 changes to the status or headers is not possible once the headers are sent. Chunked 
-transfer encoding is used by default when the Content-Length is not set with 
-set_content_length().
+transfer encoding is used by default when the Content-Length header is not set.
 
 The output stream is fully buffered and is automatically flushed when it grows too large. 
 One may use rflush() to manually flush the output stream to the user.
