@@ -149,8 +149,6 @@ luacheck:
 slowloris:
 	./test/slowloris.pl -dns 127.0.0.1:8080
 cloc:
-	cloc --quiet modserver.lua api/lua/modserver.lua config.lua http.lua util.lua \
-		api/c/modserver.c api/c/modserver.h util.c \
-		module/cgi.lua module/lua.lua module/so.lua module/py.c
+	cloc --quiet modserver.lua api/ module/ config.lua http.lua util.lua util.c
 wrk:
 	wrk -c 10 -t 1 -d 10 "http://127.0.0.1:8080/example/lua/hello.lua"
