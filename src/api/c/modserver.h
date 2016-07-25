@@ -23,7 +23,7 @@ assert(strcmp(val, "value1") == 0);
 const char* get_arg(servlet *s, const char *name);
 
 /*
-Return the HTTP method of the request.
+Return the HTTP request method.
 
 The returned string is NULL terminated. The application must not free the value.
 
@@ -34,7 +34,7 @@ assert(strcmp(method, "GET") == 0);
 const char* get_method(servlet *s);
 
 /*
-Return the value associated with the given key of the HTTP header.
+Return the value associated with the given key of the HTTP request header.
 
 HTTP headers are case-insensitive and so is the key argument.
 
@@ -48,7 +48,7 @@ assert(strcmp(val0, val1) == 0);
 const char* get_header(servlet *s, const char *key);
 
 /*
-Set the HTTP status code of the response.
+Set the HTTP response status code.
 
 The reason phrase is automatically set based on the integer status code.
 
@@ -62,7 +62,7 @@ set_status(s, 404);
 void set_status(servlet *s, int status);
 
 /*
-Set an HTTP header.
+Set an HTTP response header.
 
 HTTP headers are case-insensitive. Setting the same header again replaces the previous 
 header.
