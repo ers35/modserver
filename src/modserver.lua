@@ -48,13 +48,10 @@ local function set_signal_handlers()
     "SIGFPE",
     "SIGILL",
     "SIGBUS",
+    "SIGPIPE",
   } do
-    signal.signal(signal[signal_name], function()
-      print(unistd.getpid(), signal_name)
-      os.exit()
-    end)
+    signal.signal(signal[signal_name], signal.SIG_DFL)
   end
-  signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 end
 
 local function set_nonblocking(fd)
