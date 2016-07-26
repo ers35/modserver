@@ -6,6 +6,9 @@ example filename is config.conf and not config.lua.
 --]]
 
 local socket = require("posix.sys.socket")
+local grp = require("posix.grp")
+local pwd = require("posix.pwd")
+local unistd = require("posix.unistd")
 
 local config = {
   modules = {},
@@ -52,6 +55,25 @@ function config.listen(str)
   -- The children socket inherits this option on a fork.
   assert(socket.setsockopt(fd, socket.SOL_SOCKET, socket.SO_RCVTIMEO, 5, 0))
   table.insert(config.listenfds, fd)
+end
+
+--[[
+Set the user and group under which the server runs. If the group is not specified, the 
+user name is used as the group name.
+
+--Example:
+user "www-data"
+user ("www-data", "www-data")
+--]]
+function config.user(user, group)
+  local user_struct = assert(pwd.getpwnam(user), "user not found")
+  local group_struct = assert(grp.getgrnam(group or user), "group not found")
+  local uid = user_struct.pw_uid
+  local gid = group_struct.gr_gid
+  -- Always set the group before the user:
+  -- https://www.securecoding.cert.org/confluence/x/dgL7
+  assert(unistd.setpid("g", gid))
+  assert(unistd.setpid("u", uid))
 end
 
 --[[

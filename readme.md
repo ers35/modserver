@@ -86,3 +86,4 @@ Email [eric@ers35.com](mailto:eric@ers35.com) or post a GitHub issue to give fee
 ## Known Issues
 - Go servlets panic on Mac OS X.
 - Go servlets sometimes deadlock on runtime.futexsleep.
+- Ruby servlets sometimes crash.

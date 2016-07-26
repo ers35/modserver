@@ -25,7 +25,7 @@ if #arg < 1 then
 else
   config.load_config(arg[1])
   if #config.listenfds == 0 then
-    error([[The server is not listening on any ports. Check the config file.]])
+    error("The server is not listening on any ports. Check the config file.")
   end
 end
 
