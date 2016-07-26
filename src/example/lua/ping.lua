@@ -16,7 +16,9 @@ function servlet:run()
 ]])
   local host = self:get_arg("host")
   if host then
-    local addr = socket.getaddrinfo(host, socket.IF_INET)
+    local addr = socket.getaddrinfo(host, nil, {
+      family = socket.AF_UNSPEC, socktype = socket.SOCK_STREAM}
+    )
     if addr and addr[1] and addr[1].addr then
       local ip = addr[1].addr
       local command = "ping -c 10 " .. ip

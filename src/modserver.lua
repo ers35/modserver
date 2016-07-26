@@ -24,6 +24,9 @@ if #arg < 1 then
   os.exit()
 else
   config.load_config(arg[1])
+  if #config.listenfds == 0 then
+    error([[The server is not listening on any ports. Check the config file.]])
+  end
 end
 
 local main = {}
@@ -60,16 +63,6 @@ local function set_nonblocking(fd)
 end
 
 function main.parent_loop()
-  -- Setup TCP networking.
-  local serverfd = assert(socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0))
-  assert(socket.setsockopt(serverfd, socket.SOL_SOCKET, socket.SO_REUSEADDR, 1))
-  assert(socket.bind(
-    serverfd, {family = socket.AF_INET, addr = "0.0.0.0", port = config.cfg.listen}
-  ), "unable to listen on port: " .. config.cfg.listen)
-  assert(socket.listen(serverfd, 1024))
-  -- The children socket inherits this option on a fork.
-  assert(socket.setsockopt(serverfd, socket.SOL_SOCKET, socket.SO_RCVTIMEO, 5, 0))
-
   -- The parent and children communicate over a pipe.
   local rpipe, wpipe = unistd.pipe()
 
@@ -103,7 +96,7 @@ function main.parent_loop()
       if childpid == 0 then
         -- a new child process
         unistd.close(rpipe)
-        main.child_loop(num_fork, wpipe, serverfd)
+        main.child_loop(num_fork, wpipe, config.listenfds)
         error("returned from child_loop()")
       elseif childpid > 0 then
         -- the same parent process
@@ -116,7 +109,7 @@ function main.parent_loop()
     
     --]]
     local ret = poll.poll(poll_fds, 1000)
-    if ret == 1 then
+    if ret > 0 then
       for fd in pairs(poll_fds) do
         if poll_fds[fd].revents.IN then
           repeat
@@ -226,27 +219,46 @@ two events: before the child waits on accept and after the child accepts a conne
 The parent uses these events to keep track of how many child are ready to handle new 
 connections.
 --]]
-function main.child_loop(id, wpipe, serverfd)
+function main.child_loop(id, wpipe, listenfds)
   local mypid = unistd.getpid()
   local padded_pid = ("%020u"):format(mypid)
   main.child_is_ready(wpipe, padded_pid)
+  local poll_fds = {}
+  for i, fd in ipairs(listenfds) do
+    poll_fds[fd] = {events = {IN = true}}
+  end
   while true do
-    local clientfd, errmsg, errnum = socket.accept(serverfd)
-    if clientfd then
-      main.child_is_busy(wpipe, padded_pid)
-      --[[
-      A read from the socket returns with an error after five seconds of inactivity 
-      rather than blocking forever.
-      --]]
-      socket.setsockopt(clientfd, socket.SOL_SOCKET, socket.SO_RCVTIMEO, 5, 0)
-      main.handle_request(clientfd)
-      main.child_is_ready(wpipe, padded_pid)
-    else
-      if (errnum == errno.EAGAIN or errnum == errno.EWOULDBLOCK) and id > 0 then
-        -- accept() timed out due to SO_RCVTIMEO.
-        -- TODO: also take a timestamp before accept to tell the difference between 
-        -- SO_RCVTIMEO and accept returning EAGAIN due to thundering herd.
-        unistd._exit(0)
+    local ret, errmsg, errnum = poll.poll(poll_fds, 5000)
+    if ret then
+      if ret > 0 then
+        for fd in pairs(poll_fds) do
+          if poll_fds[fd].revents.IN then
+            local clientfd, _, _ = socket.accept(fd)
+            if clientfd then
+              main.child_is_busy(wpipe, padded_pid)
+              --[[
+              A read from the socket returns with an error after five seconds of 
+              inactivity rather than blocking forever.
+              --]]
+              socket.setsockopt(clientfd, socket.SOL_SOCKET, socket.SO_RCVTIMEO, 5, 0)
+              main.handle_request(clientfd)
+              main.child_is_ready(wpipe, padded_pid)
+            else
+              if (errnum == errno.EAGAIN or errnum == errno.EWOULDBLOCK) and id > 0 then
+                -- accept() timed out due to SO_RCVTIMEO.
+                -- TODO: also take a timestamp before accept to tell the difference 
+                -- between SO_RCVTIMEO and accept returning EAGAIN due to thundering 
+                -- herd.
+                unistd._exit(0)
+              end
+            end
+          end
+        end
+      elseif ret == 0 then
+        -- poll timeout.
+        if id > 0 then
+          unistd._exit(0)
+        end
       end
     end
   end

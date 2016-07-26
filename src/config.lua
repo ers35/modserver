@@ -5,14 +5,14 @@ configuration file. The user may not even realize the syntax is Lua. This is why
 example filename is config.conf and not config.lua.
 --]]
 
+local socket = require("posix.sys.socket")
+
 -- Set default configuration parameters.
 local config = {
-  cfg = {
-    listen = 8080,
-  },
   modules = {},
   servlets = {},
   routes = {},
+  listenfds = {},
 }
 
 --[[
@@ -25,8 +25,21 @@ function config.load_config(path)
 end
 
 -- The TCP port on which the server listens.
-function config.listen(port)
-  config.cfg.listen = assert(tonumber(port), "the listen port must be a number")
+function config.listen(str)
+  local address, port = str:match([[(.+):(%d+)]])
+  port = assert(tonumber(port), "the listen port must be a number")
+  local addrinfo = assert(socket.getaddrinfo(address, port, {
+    family = socket.AF_UNSPEC, socktype = socket.SOCK_STREAM}
+  ))
+  local fd = assert(socket.socket(addrinfo[1].family, socket.SOCK_STREAM, 0))
+  assert(socket.setsockopt(fd, socket.SOL_SOCKET, socket.SO_REUSEADDR, 1))
+  assert(socket.bind(
+    fd, {family = addrinfo[1].family, addr = addrinfo[1].addr, port = port}
+  ), "unable to listen on port: " .. port)
+  assert(socket.listen(fd, 1024))
+  -- The children socket inherits this option on a fork.
+  assert(socket.setsockopt(fd, socket.SOL_SOCKET, socket.SO_RCVTIMEO, 5, 0))
+  table.insert(config.listenfds, fd)
 end
 
 --[[
