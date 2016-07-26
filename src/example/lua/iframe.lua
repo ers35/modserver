@@ -26,10 +26,10 @@ iframe {
     "/example/haskell/hello.hs.so",
     "/example/lua/hello.lua",
     "/example/nim/hello.nim.so",
-    -- "/example/ocaml/hello.ml.so",
     "/example/python/hello.py",
     "/example/ruby/hello.rb",
     "/example/rust/hello.rs.so",
+    "/example/scheme/hello.scm",
   }
   for i, servlet in ipairs(servlets) do
     self:rwrite(([[<a href="%s">%s</a>]] .. "\n"):format(servlet, servlet))

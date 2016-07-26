@@ -30,6 +30,7 @@ iframe {
     "/example/python/test.py",
     "/example/ruby/test.rb",
     "/example/rust/test.rs.so",
+    "/example/scheme/test.scm",
   }
   for i, servlet in ipairs(servlets) do
     self:rwrite(([[<a href="%s?arg=123">%s</a>]] .. "\n"):format(servlet, servlet))

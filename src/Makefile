@@ -56,9 +56,13 @@ cutil.a: util.c
 # Modules
 
 module: \
+	module/guile.so \
 	module/python.so \
 	module/ruby.so
 
+module/guile.so: module/guile.c
+	cc -std=c99 -fPIC -shared $(LDFLAGS) $+ $(LDLIBS) -Iapi/c -I$(LUASRC) \
+		`guile-config compile` `guile-config link` -o $@ || true
 module/python.so: PYTHON := $(shell pkg-config --cflags --libs python3)
 module/python.so: module/python.c
 	cc -std=c99 -fPIC -shared $(LDFLAGS) $+ $(LDLIBS) -Iapi/c -I$(LUASRC) \

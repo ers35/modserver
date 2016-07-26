@@ -60,6 +60,7 @@ There are example hello world applications in a variety of programming languages
 - [Python](src/example/python/hello.py)
 - [Ruby](src/example/ruby/hello.rb)
 - [Rust](src/example/rust/hello.rs)
+- [Scheme](src/example/scheme/hello.scm)
 
 See the [module](src/module/) directory to learn how to add support for another 
 language.
