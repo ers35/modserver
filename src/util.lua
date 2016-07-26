@@ -1,29 +1,16 @@
 local util = {}
 
+local fcntl = require("posix.fcntl")
 local time = require("posix.time")
 
-function util.time_ns()
-  local ts = time.clock_gettime(time.CLOCK_MONOTONIC)
-  return tonumber((ts.tv_sec * 1000000000) + ts.tv_nsec)
+function util.set_nonblocking(fd)
+  local current_flags = fcntl.fcntl(fd, fcntl.F_GETFL)
+  fcntl.fcntl(fd, fcntl.F_SETFL, bit32.bor(current_flags, fcntl.O_NONBLOCK))
 end
 
-function util.seconds(seconds)
-  return seconds * 1000000000
-end
-
-util.timestamp = 0
-
-function util.ts()
-  util.timestamp = util.time_ns()
-  return util.timestamp
-end
-
-function util.te()
-  local now = util.time_ns()
-  print(now - util.timestamp)
-  return now
-end
-
+--[[
+Make the functions from the cutil C module available in the util module. 
+--]]
 local cutil = require("cutil")
 for k, v in pairs(cutil) do
   util[k] = v

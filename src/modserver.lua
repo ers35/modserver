@@ -3,12 +3,12 @@
 local api = require("api.lua.modserver")
 local config = require("config")
 local http = require("http")
+local util = require("util")
 --[[
 luaposix provides access to the POSIX standards for functionality Lua lacks such as 
 networking. See https://github.com/luaposix/luaposix for more details.
 ]]
 local errno = require("posix.errno")
-local fcntl = require("posix.fcntl")
 local signal = require("posix.signal")
 local socket = require("posix.sys.socket")
 local stdio = require("posix.stdio")
@@ -32,6 +32,8 @@ end
 local main = {}
 
 --[[
+Children use these functions to communicate their state to the parent over a pipe.
+
 A child process can be in one of two states:
   (+) Waiting on accept() to handle a request.
   (-) Busy handling a request or otherwise not ready.
@@ -43,7 +45,15 @@ function main.child_is_busy(wpipe, padded_pid)
   unistd.write(wpipe, padded_pid .. "-")
 end
 
-local function set_signal_handlers()
+--[[
+A process may only set one signal handler per signal type. Certain language 
+implementations set signal handlers. This poses a problem because the handlers conflict 
+with each other. Assume that the signal handlers are only used for debugging crashes and 
+set them all to SIG_DFL to have the parent process report the crash instead. 
+Unfortunately, useful debugging information like stack traces are lost. Perhaps creating 
+a core dump when a servlet crashes is a reasonable compromise.
+--]]
+local function set_default_signal_handlers()
   for _, signal_name in ipairs{
     "SIGINT",
     "SIGSEGV",
@@ -52,21 +62,20 @@ local function set_signal_handlers()
     "SIGILL",
     "SIGBUS",
     "SIGPIPE",
+    "SIGCHLD",
   } do
     signal.signal(signal[signal_name], signal.SIG_DFL)
   end
 end
 
-local function set_nonblocking(fd)
-  local flags = fcntl.fcntl(fd, fcntl.F_GETFL)
-  fcntl.fcntl(fd, fcntl.F_SETFL, bit32.bor(flags, fcntl.O_NONBLOCK))
-end
-
+--[[
+The role of the parent process is to manage the number of child processes.
+--]]
 function main.parent_loop()
   -- The parent and children communicate over a pipe.
   local rpipe, wpipe = unistd.pipe()
 
-  set_signal_handlers()
+  set_default_signal_handlers()
   
   -- Terminate the server when Ctrl+C is pressed.
   signal.signal(signal.SIGINT, function()
@@ -79,7 +88,7 @@ function main.parent_loop()
   local poll_fds = {
     [rpipe] = {events = {IN = true}},
   }
-  set_nonblocking(rpipe)
+  util.set_nonblocking(rpipe)
 
   local num_fork = 0
   -- Keep track of forked child processes by their pid.
@@ -106,7 +115,7 @@ function main.parent_loop()
     end
     
     --[[
-    
+    Wait up to one second for messages from children.
     --]]
     local ret = poll.poll(poll_fds, 1000)
     if ret > 0 then
@@ -116,6 +125,10 @@ function main.parent_loop()
             -- The parent waits on one pipe for messages from many children.
             local data, errmsg, errnum = unistd.read(rpipe, 21 * 128)
             if data then
+              -- The message uses this text format:
+              -- [20 byte padded string pid][1 byte command]
+              -- 00000000000000018838+
+              -- The message is always 21 bytes in size.
               for strpid, cmd in data:gmatch("(%d+)([-+])") do
                 local numpid = tonumber(strpid)
                 local child = children[numpid]
@@ -139,12 +152,11 @@ function main.parent_loop()
     end
     
     --[[
-    Wait for state changes in the child processes, if any.
+    Wait for state changes in the child processes, if any. Report the pid of any crashes.
     --]]
     repeat
       local pid, status, code = wait.wait(-1, wait.WNOHANG)
       if pid and pid ~= 0 then
-        -- print(pid, status, code)
         local child = children[pid]
         if child and child.state == "+" then
           num_children_ready = num_children_ready - 1
@@ -183,16 +195,15 @@ function main.handle_request(clientfd)
     setmetatable(state, {__index = api})
     local servlet = config.routes[request.uri_path]
     if servlet then
-      if servlet.num_run == 0 then
+      if not servlet.initialized then
         if servlet.init then
           servlet.init(state)
           -- Override languages that set their own signal handlers.
-          set_signal_handlers()
-          signal.signal(signal.SIGCHLD, signal.SIG_DFL)
+          set_default_signal_handlers()
+          servlet.initialized = true
         end
       end
       servlet.run(state)
-      servlet.num_run = servlet.num_run + 1
     else
       -- No servlet can handle the request.
       state:set_status(404)
@@ -255,7 +266,7 @@ function main.child_loop(id, wpipe, listenfds)
           end
         end
       elseif ret == 0 then
-        -- poll timeout.
+        -- poll() timeout.
         if id > 0 then
           unistd._exit(0)
         end

@@ -16,6 +16,9 @@ local function parse_args(args)
   end
 end
 
+--[[
+Read the status line and headers from an HTTP request. The body is left unread.
+--]]
 function http.read_and_parse_request_from_file(f)
   local request
   local bytes_read = 0
@@ -111,23 +114,24 @@ function http.test()
     local parsed_request = http.read_and_parse_request_from_file(f)
     print(inspect(parsed_request), "\n")
     f:close()
+    return parsed_request
   end
   
-  req{
+  assert(req{
   "GET / HTTP/1.1",
   "Host: www.example.com",
   "User-Agent: foo",
   "\r\n",
-  }
+  })
   
-  req{
+  assert(req{
   "GET /?foo=bar&abc=123 HTTP/1.1",
   -- the client tries to send infinitely long lines
   "foo: " .. (" "):rep(9999999) .. "bar",
   "Host: www.example.com",
   "User-Agent: foo",
   "\r\n",
-  }
+  } == nil)
 end
 -- http.test()
 

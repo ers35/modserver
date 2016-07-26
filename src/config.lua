@@ -7,7 +7,6 @@ example filename is config.conf and not config.lua.
 
 local socket = require("posix.sys.socket")
 
--- Set default configuration parameters.
 local config = {
   modules = {},
   servlets = {},
@@ -18,13 +17,26 @@ local config = {
 --[[
 The config file is run with the config table as its environment. Only functions in the 
 config table can be called.
+
+--Example:
+load_config "config.conf"
 --]]
 function config.load_config(path)
   local func = assert(loadfile(path, "t", config))
   assert(pcall(func))
 end
 
--- The TCP port on which the server listens.
+--[[
+Set the address and port on which the server accepts requests.
+
+listen may be used multiple times to listen on multiple addresses.
+
+--Example:
+-- IPv4
+listen "0.0.0.0:8080"
+-- IPv6
+listen "::1:8080"
+--]]
 function config.listen(str)
   local address, port = str:match([[(.+):(%d+)]])
   port = assert(tonumber(port), "the listen port must be a number")
@@ -49,7 +61,7 @@ load_servlet() function that know how to load a particular type of servlet.
 Modules follow the format used by Lua's require() function:
 http://www.lua.org/manual/5.2/manual.html#6.3
 
-Example:
+--Example:
 load_module ("module.lua", "lua")
 load_module ("module.lua", {"lua", "luac"})
 --]]
@@ -76,14 +88,20 @@ function config.load_module(path, extensions)
 end
 
 --[[
+Load the servlet from the specified path. The default route is the same as the path. The 
+second argument optionally set the route.
+
+The file extension determines which module is used to load the servlet.
+
 Servlets dynamically generate responses to requests using the provided API. Servlets can 
 define three functions:
   init() is called the first time the servlet is requested and is optional.
   run() is called each time the servlet is requested and must be defined.
   cleanup() is called before the process containing the servlet exits and is optional.
   
-Example:
+--Example:
 load_servlet "example/lua/servlet.lua"
+load_servlet ("index.lua", "/")
 --]]
 function config.load_servlet(path, route)
   route = route or "/" .. path
@@ -92,7 +110,7 @@ function config.load_servlet(path, route)
   if mod then
     local ok, servlet = pcall(mod.load_servlet, path)
     if ok and servlet then
-      servlet.num_run = 0
+      servlet.initialized = false
       config.servlets[path] = servlet
       config.routes[route] = servlet
       -- print("loaded servlet:", path)
