@@ -90,27 +90,27 @@ function main.parent_loop()
   }
   util.set_nonblocking(rpipe)
 
-  local num_fork = 0
   -- Keep track of forked child processes by their pid.
   local children = {}
+  local num_children = 0
   local num_children_ready = 0
   while true do
     --[[
     The parent process forks a child process when there are no ready child processes. A 
     ready child process is one that is waiting to accept a client connection. 
     --]]
-    assert(num_children_ready >= 0, "negative children ready")
+    assert(num_children_ready >= 0, "negative num_children_ready")
     if num_children_ready == 0 then
       local childpid = assert(unistd.fork())
       if childpid == 0 then
         -- a new child process
         unistd.close(rpipe)
-        main.child_loop(num_fork, wpipe, config.listenfds)
+        main.child_loop(wpipe, config.listenfds, num_children > 0)
         error("returned from child_loop()")
       elseif childpid > 0 then
         -- the same parent process
         children[childpid] = {state = "f"}
-        num_fork = num_fork + 1
+        num_children = num_children + 1
       end
     end
     
@@ -162,6 +162,8 @@ function main.parent_loop()
           num_children_ready = num_children_ready - 1
         end
         children[pid] = nil
+        num_children = num_children - 1
+        assert(num_children >= 0, "negative num_children")
         if code == signal.SIGSEGV then
           print(pid, status)
         end
@@ -230,7 +232,7 @@ two events: before the child waits on accept and after the child accepts a conne
 The parent uses these events to keep track of how many child are ready to handle new 
 connections.
 --]]
-function main.child_loop(id, wpipe, listenfds)
+function main.child_loop(wpipe, listenfds, exit_on_timeout)
   local mypid = unistd.getpid()
   local padded_pid = ("%020u"):format(mypid)
   main.child_is_ready(wpipe, padded_pid)
@@ -267,7 +269,7 @@ function main.child_loop(id, wpipe, listenfds)
         end
       elseif ret == 0 then
         -- poll() timeout.
-        if id > 0 then
+        if exit_on_timeout then
           unistd._exit(0)
         end
       end
