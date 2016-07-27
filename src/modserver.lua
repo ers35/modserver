@@ -177,27 +177,28 @@ end
 Read the request, choose the servlet to handle the request, run the servlet, and close 
 the connection.
 --]]
-function main.handle_request(clientfd)
-  local clientfd_read = stdio.fdopen(clientfd, "r")
-  local clientfd2 = unistd.dup(clientfd)
-  local clientfd_write = stdio.fdopen(clientfd2, "w")
-  --[[
-  A slow client can send one byte every five seconds up to LUAL_BUFFERSIZE before the 
-  connection is closed.
-  --]]
-  local request = http.read_and_parse_request_from_file(clientfd_read)
-  if request and request.method and request.uri and request.uri_path then
-    local state = {
-      request = request,
-      content_length_read = 0,
-      headers_written = false,
-      clientfd_read = clientfd_read,
-      clientfd_write = clientfd_write,
-      headers = {},
-    }
-    setmetatable(state, {__index = api})
+function main.handle_request(readf, writef)
+  local state = {
+    request = {method = "", headers = {}, query = {}},
+    clientfd_read = readf,
+    clientfd_write = writef,
+    response_headers_written = false,
+    response_headers = {},
+  }
+  setmetatable(state, {__index = api})
+  local request, errmsg, errnum = http.read_and_parse_request(state.clientfd_read)
+  if request then
+    state.request = request
     local servlet = config.routes[request.uri_path]
     if servlet then
+      --[[
+      8.2.3 Use of the 100 (Continue) Status
+      https://tools.ietf.org/html/rfc2616#section-8.2.3
+      --]]
+      if state.request.headers["expect"] == "100-continue" then
+        state.clientfd_write:write("HTTP/1.1 100 Continue\r\n\r\n")
+        state.clientfd_write:flush()
+      end
       if not servlet.initialized then
         if servlet.init then
           servlet.init(state)
@@ -212,18 +213,23 @@ function main.handle_request(clientfd)
       state:set_status(404)
       state:rwrite("404 Not Found")
     end
-    if not state.headers_written then
-      -- The servlet did not write any body. Write an empty body.
-      state:rwrite("")
-    end
-    if not state.headers["content-length"] then
-      -- Send the last chunk of the chunked response.
-      state.clientfd_write:write("0\r\n\r\n")
-      state.clientfd_write:flush()
-    end
+  else
+    state:set_status(errnum)
+    state:rwrite(("%u %s"):format(errnum, errmsg))
   end
-  clientfd_read:close()
-  clientfd_write:close()
+  if not state.response_headers_written then
+    --[[
+    The servlet did not write any data.
+    --]]
+    state:set_status(204)
+    state:set_header("Content-Length", "0")
+    state:write_status_line_and_headers()
+  end
+  if not state.response_headers["content-length"] then
+    -- Send the last chunk of the chunked response.
+    state.clientfd_write:write("0\r\n\r\n")
+  end
+  state.clientfd_write:flush()
 end
 
 --[[
@@ -255,7 +261,12 @@ function main.child_loop(wpipe, listenfds, exit_on_timeout)
               inactivity rather than blocking forever.
               --]]
               socket.setsockopt(clientfd, socket.SOL_SOCKET, socket.SO_RCVTIMEO, 5, 0)
-              main.handle_request(clientfd)
+              local readf  = assert(stdio.fdopen(clientfd, "r"))
+              local clientfd2 = assert(unistd.dup(clientfd))
+              local writef = assert(stdio.fdopen(clientfd2, "w"))
+              main.handle_request(readf, writef)
+              readf:close()
+              writef:close()
               main.child_is_ready(wpipe, padded_pid)
             else
               if errnum == errno.EAGAIN or errnum == errno.EWOULDBLOCK then

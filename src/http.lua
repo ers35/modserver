@@ -1,15 +1,16 @@
 local http = {}
 
+local errno = require("posix.errno")
 local util = require("util")
 
 --[[
-Take a string of URI arguments in the form "?key=value&foo=bar" and return a table 
+Take a query string of the form "?key=value&foo=bar" and return a table 
 {key = value, foo = bar}
 --]]
-local function parse_args(args)
-  if args then
+local function parse_query_string(query)
+  if query then
     local tbl = {}
-    for key, value in args:gmatch[[[?&]([%w%.]+)=([%w%.]+)]] do
+    for key, value in query:gmatch([[[?&]([%w%.]+)=([%w%.]+)]]) do
       tbl[key] = value
     end
     return tbl
@@ -17,47 +18,126 @@ local function parse_args(args)
 end
 
 --[[
+
+--]]
+function http.parse_request_line(line)
+  local method, uri = line:match("(%a+)%s+([%w%p]+)%s+")
+  return method, uri
+end
+
+--[[
+
+--]]
+function http.parse_uri(uri)
+  local path, query_string = uri:match("^([/%w%a-+%.]+)([?]?.*)")
+  return path, query_string
+end
+
+--[[
+Parse a header of the form Name: Value and return the name and value.
+--]]
+function http.parse_header(header)
+  local name, value = header:match("([%a-]+)%s*:%s*(.+)\r\n")
+  return name, value
+end
+
+local function errnum_to_status(errnum)
+  local status = 400
+  if errnum == errno.EAGAIN or errnum == errno.EWOULDBLOCK then
+    status = 408
+  end
+  return nil, http.reason_phrase[status], status
+end
+
+--[[
 Read the status line and headers from an HTTP request. The body is left unread.
 --]]
-function http.read_and_parse_request_from_file(f)
-  local request
+function http.read_and_parse_request(file)
+  local request_line, errmsg, errnum = util.fgets(4096, file)
+  if not request_line then
+    return errnum_to_status(errnum)
+  end
+  local method, uri = http.parse_request_line(request_line)
+  if not (method and uri) then
+    return nil, "Bad Request", 400
+  end
+  local headers = {}
   local bytes_read = 0
-  local request_line = util.fgets(4096, f)
-  if not request_line or request_line == 0 then
+  while true do
+    local header, errmsg, errnum = util.fgets(4096, file)
+    if not header then
+      return errnum_to_status(errnum)
+    end
+    bytes_read = bytes_read + #header
+    if bytes_read > 4096 then
+      return nil, "Request Header Fields Too Large", 431
+    end
+    if header == "\r\n" then
+      -- Header parsing is complete.
+      break
+    end
+    local name, value = http.parse_header(header)
+    if not (name and value) then
+      return nil, "Bad Request", 400
+    end
+    headers[name:lower()] = value
+  end
+  local uri_path, query_string = http.parse_uri(uri)
+  if not uri_path then
+    return nil, "Bad Request", 400
+  end
+  local request = {
+    method = method,
+    uri = uri,
+    uri_path = uri_path,
+    headers = headers,
+    query = parse_query_string(query_string),
+  }
+  return request
+end
+
+function http.write_status_line(file, status)
+  local status_line 
+    = ("HTTP/1.1 %u %s\r\n"):format(status, http.reason_phrase[status] or "")
+  file:write(status_line)
+end
+
+function http.write_headers(file, headers)
+  for _, pair in pairs(headers) do
+    file:write(pair.name)
+    file:write(": ")
+    file:write(pair.value)
+    file:write("\r\n")
+  end
+  file:write("\r\n")
+end
+
+function http.write_chunk(file, chunk)
+  file:write(("%X\r\n"):format(#chunk))
+  file:write(chunk)
+  file:write("\r\n")
+end
+
+function http.read_chunk(file, length)
+  local strhexlength = util.fgets(length, file)
+  if not strhexlength then
     return nil
   end
-  bytes_read = bytes_read + #request_line
-  local method, uri = request_line:match("(%a+)%s+([%w%p]+)%s+")
-  if method and uri then
-    local headers = {}
-    while true do
-      local header = util.fgets(4096, f)
-      if not header then
-        return nil
-      end
-      bytes_read = bytes_read + #header
-      if header == "\r\n" then
-        break
-      end
-      local key, value = header:match("([%a-]+)%s*:%s*(.+)\r\n")
-      if not key or not value then
-        return nil
-      end
-      headers[key:lower()] = value
-      if bytes_read > 4096 then
-        break
-      end
-    end
-    request = {
-      method = method,
-      uri = uri,
-      headers = headers,
-    }
-    local uri_path, args = request.uri:match("^([/%w%a-+%.]+)([?]?.*)")
-    request.uri_path = uri_path
-    request.args = parse_args(args)
+  local chunk_length = tonumber("0x" .. strhexlength)
+  if not chunk_length then
+    return nil
   end
-  return request
+  if chunk_length == 0 then
+    return nil
+  end
+  local data = util.fgets(chunk_length, file)
+  if not data then
+    return nil
+  end
+  if util.fgets(2, file) ~= "\r\n" then
+    return nil
+  end
+  return data
 end
 
 -- https://tools.ietf.org/html/rfc2616#section-10
@@ -127,13 +207,13 @@ http.reason_phrase = {
 function http.test()
   local inspect = require("inspect")
   local function req(tbl)
-    local f = io.tmpfile()
+    local file = io.tmpfile()
     local request = table.concat(tbl, "\r\n")
-    f:write(request)
-    f:seek("set")
-    local parsed_request = http.read_and_parse_request_from_file(f)
+    file:write(request)
+    file:seek("set")
+    local parsed_request = http.read_and_parse_request(file)
     print(inspect(parsed_request), "\n")
-    f:close()
+    file:close()
     return parsed_request
   end
   

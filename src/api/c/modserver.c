@@ -38,22 +38,22 @@ const char *get_method(lua_State *l)
   return method;
 }
 
-const char *get_header(lua_State *l, const char *key)
+const char *get_header(lua_State *l, const char *name)
 {
   lua_getfield(l, -1, "get_header");
   lua_pushvalue(l, 1);
-  lua_pushstring(l, key);
+  lua_pushstring(l, name);
   lua_call(l, 2, 1);
   const char *arg = lua_tostring(l, -1);
   lua_pushvalue(l, 1);
   return arg;
 }
 
-void set_header(lua_State *l, const char *key, const char *value)
+void set_header(lua_State *l, const char *name, const char *value)
 {
   lua_getfield(l, -1, "set_header");
   lua_pushvalue(l, 1);
-  lua_pushstring(l, key);
+  lua_pushstring(l, name);
   lua_pushstring(l, value);
   lua_call(l, 3, 0);
 }
@@ -76,9 +76,9 @@ void rwrite(lua_State *l, const char *buffer, size_t length)
   lua_call(l, 2, 0);
 }
 
-static void write_headers(lua_State *l)
+static void write_status_line_and_headers(lua_State *l)
 {
-  lua_getfield(l, -1, "write_headers");
+  lua_getfield(l, -1, "write_status_line_and_headers");
   lua_pushvalue(l, 1);
   lua_call(l, 1, 0);
 }
@@ -94,12 +94,12 @@ static FILE* get_clientfd_write(lua_State *l)
 
 int rprintf(lua_State *l, const char *format, ...)
 {
-  lua_getfield(l, -1, "headers_written");
-  int headers_written = lua_toboolean(l, -1);
+  lua_getfield(l, -1, "response_headers_written");
+  int response_headers_written = lua_toboolean(l, -1);
   lua_pop(l, 1);
-  if (!headers_written)
+  if (!response_headers_written)
   {
-    write_headers(l);
+    write_status_line_and_headers(l);
   }
   FILE *f = get_clientfd_write(l);
   int ret;
@@ -114,7 +114,7 @@ int rprintf(lua_State *l, const char *format, ...)
   {
     return len;
   }
-  lua_getfield(l, -1, "headers");
+  lua_getfield(l, -1, "response_headers");
   lua_getfield(l, -1, "content-length");
   int chunked = !lua_toboolean(l, -1);
   lua_pop(l, 2);
