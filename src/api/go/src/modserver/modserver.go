@@ -32,9 +32,9 @@ func Get_method(s unsafe.Pointer) (string) {
   return method_string
 }
 
-func Get_header(s unsafe.Pointer, key string) (string) {
-  key_ptr := to_ptr(key)
-  value := C.get_header((*C.servlet)(s), (*C.char)(key_ptr))
+func Get_header(s unsafe.Pointer, name string) (string) {
+  name_ptr := to_ptr(name)
+  value := C.get_header((*C.servlet)(s), (*C.char)(name_ptr))
   value_string := C.GoString(value)
   return value_string
 }
@@ -43,10 +43,10 @@ func Set_status(s unsafe.Pointer, status int32) {
   C.set_status((*C.servlet)(s), (C.int)(status))
 }
 
-func Set_header(s unsafe.Pointer, key string, value string) {
-  key_ptr := to_ptr(key)
+func Set_header(s unsafe.Pointer, name string, value string) {
+  name_ptr := to_ptr(name)
   value_ptr := to_ptr(value)
-  C.set_header((*C.servlet)(s), (*C.char)(key_ptr), (*C.char)(value_ptr))
+  C.set_header((*C.servlet)(s), (*C.char)(name_ptr), (*C.char)(value_ptr))
 }
 
 func Rwrite(s unsafe.Pointer, buffer string) {

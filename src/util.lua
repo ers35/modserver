@@ -1,7 +1,6 @@
 local util = {}
 
 local fcntl = require("posix.fcntl")
-local time = require("posix.time")
 
 function util.set_nonblocking(fd)
   local current_flags = fcntl.fcntl(fd, fcntl.F_GETFL)

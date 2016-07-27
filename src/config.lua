@@ -99,7 +99,7 @@ function config.load_module(path, extensions)
       mod.init()
     end
     assert(mod.load_servlet, "this module needs a load_servlet() function: " .. path)
-    for i, extension in ipairs(extensions) do
+    for _, extension in ipairs(extensions) do
       config.modules[extension] = mod
     end
     print([[load_module "]] .. path .. [["]])

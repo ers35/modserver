@@ -34,9 +34,9 @@ assert(strcmp(method, "GET") == 0);
 const char* get_method(servlet *s);
 
 /*
-Return the value associated with the given key of the HTTP request header.
+Return the value associated with the given HTTP request header name.
 
-HTTP headers are case-insensitive and so is the key argument.
+HTTP header names are case-insensitive and so is the name argument.
 
 The returned string is NULL terminated. The application must not free the value.
 
@@ -45,7 +45,7 @@ const char *val0 = get_header(s, "User-Agent");
 const char *val1 = get_header(s, "user-agent");
 assert(strcmp(val0, val1) == 0);
 */
-const char* get_header(servlet *s, const char *key);
+const char* get_header(servlet *s, const char *name);
 
 /*
 Set the HTTP response status code.
@@ -64,10 +64,10 @@ void set_status(servlet *s, int status);
 /*
 Set an HTTP response header.
 
-HTTP headers are case-insensitive. Setting the same header again replaces the previous 
+HTTP header names are case-insensitive. Setting the same header again replaces the previous 
 header.
 
-Internal copies are made of the key and value.
+Internal copies are made of the name and value.
 
 // Example:
 set_header(s, "Set-Cookie", "key=value");
@@ -79,7 +79,7 @@ char str_length[128];
 snprintf(str_length, sizeof(str_length), "%u", length);
 set_header(s, "Content-Length", str_length);
 */
-void set_header(servlet *s, const char *key, const char *value);
+void set_header(servlet *s, const char *name, const char *value);
 
 /*
 Write the given buffer to the output stream.
