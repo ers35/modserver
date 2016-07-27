@@ -11,7 +11,7 @@ use std::ffi::{CString};
 #[no_mangle]
 pub extern "C" fn run(s: *mut Servlet) -> u32 {
   unsafe {
-    set_status(s, 404);
+    set_status(s, 200);
     let key = CString::new("Content-Type").unwrap();
     let value = CString::new("text/plain; charset=UTF-8").unwrap();
     set_header(s, key.as_ptr(), value.as_ptr());

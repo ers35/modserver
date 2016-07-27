@@ -3,7 +3,7 @@ import modserver
 # http://127.0.0.1:8080/example/nim/test.nim.so?test=abc
 
 proc run(s: PServlet): int{.exportc.} =
-  set_status(s, 404)
+  set_status(s, 200)
   set_header(s, "Content-Type", "text/plain; charset=UTF-8")
   rflush(s)
   
