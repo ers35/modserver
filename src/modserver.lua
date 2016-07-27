@@ -257,12 +257,14 @@ function main.child_loop(wpipe, listenfds, exit_on_timeout)
               main.handle_request(clientfd)
               main.child_is_ready(wpipe, padded_pid)
             else
-              if (errnum == errno.EAGAIN or errnum == errno.EWOULDBLOCK) and id > 0 then
+              if errnum == errno.EAGAIN or errnum == errno.EWOULDBLOCK then
                 -- accept() timed out due to SO_RCVTIMEO.
                 -- TODO: also take a timestamp before accept to tell the difference 
                 -- between SO_RCVTIMEO and accept returning EAGAIN due to thundering 
                 -- herd.
-                unistd._exit(0)
+                if exit_on_timeout then
+                  unistd._exit(0)
+                end
               end
             end
           end
