@@ -61,11 +61,12 @@ local function set_default_signal_handlers()
     "SIGFPE",
     "SIGILL",
     "SIGBUS",
-    "SIGPIPE",
     "SIGCHLD",
   } do
     signal.signal(signal[signal_name], signal.SIG_DFL)
   end
+  -- Prefer handling SIGPIPE at each read call instead of terminating the process.
+  signal.signal(signal.SIGPIPE, signal.SIG_IGN)
 end
 
 --[[
@@ -164,8 +165,8 @@ function main.parent_loop()
         children[pid] = nil
         num_children = num_children - 1
         assert(num_children >= 0, "negative num_children")
-        if code == signal.SIGSEGV then
-          print(pid, status)
+        if code ~= 0 then
+          print(pid, status, code)
         end
       end
     until not pid or pid == 0 or pid == -1
