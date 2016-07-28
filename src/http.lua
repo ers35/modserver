@@ -15,18 +15,19 @@ do
   -- https://tools.ietf.org/html/rfc2616#section-5.1.1
   local method =
   (
-    lpeg.C"OPTIONS" + 
-    lpeg.C"GET" + 
-    lpeg.C"HEAD" + 
-    lpeg.C"POST" + 
-    lpeg.C"PUT" + 
-    lpeg.C"DELETE" + 
-    lpeg.C"TRACE" + 
-    lpeg.C"CONNECT"
+    lpeg.C("OPTIONS") + 
+    lpeg.C("GET") + 
+    lpeg.C("HEAD") + 
+    lpeg.C("POST") + 
+    lpeg.C("PUT") + 
+    lpeg.C("DELETE") + 
+    lpeg.C("TRACE") + 
+    lpeg.C("CONNECT")
   )
   -- https://tools.ietf.org/html/rfc2396
   local request_uri = lpeg.C(lpeg.P("/") * ((lpeg.alnum + lpeg.punct) ^ 0))
-  local HTTP_version = lpeg.C(lpeg.P("HTTP/1.1"))
+  local HTTP_version = 
+    lpeg.C(  lpeg.P("HTTP/") * (lpeg.digit ^ 0) * lpeg.P(".") * (lpeg.digit ^ 0)  )
   -- https://tools.ietf.org/html/rfc2616#section-5.1
   -- https://tools.ietf.org/html/rfc7230#section-3.1.1
   local request_line = method * SP * request_uri * SP * HTTP_version * CLRF
@@ -245,15 +246,23 @@ if os.getenv("TEST") == "1" then
     assert(method == "GET")
     assert(uri == "/")
     assert(version == "HTTP/1.1")
-    method, uri = http.parse_request_line("GET    /    HTTP/1.1\r\n")
+    method, uri, version = http.parse_request_line("GET / HTTP/1.0\r\n")
+    assert(method == "GET")
+    assert(uri == "/")
+    assert(version == "HTTP/1.0")
+    method, uri, version = http.parse_request_line("GET / HTTP/12.21\r\n")
+    assert(method == "GET")
+    assert(uri == "/")
+    assert(version == "HTTP/12.21")
+    method, uri, version = http.parse_request_line("GET    /    HTTP/1.1\r\n")
     assert(method == "GET")
     assert(uri == "/")
     assert(version == "HTTP/1.1")
-    method, uri = http.parse_request_line("GET /foo HTTP/1.1\r\n")
+    method, uri, version = http.parse_request_line("GET /foo HTTP/1.1\r\n")
     assert(method == "GET")
     assert(uri == "/foo")
     assert(version == "HTTP/1.1")
-    method, uri = http.parse_request_line("GET /foo?key HTTP/1.1\r\n")
+    method, uri, version = http.parse_request_line("GET /foo?key HTTP/1.1\r\n")
     assert(method == "GET")
     assert(uri == "/foo?key")
     assert(version == "HTTP/1.1")
