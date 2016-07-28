@@ -1,3 +1,6 @@
+#ifndef MODSERVER_H
+#define MODSERVER_H
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -132,4 +135,6 @@ void rflush(servlet *s);
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif
