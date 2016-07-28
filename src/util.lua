@@ -11,7 +11,7 @@ end
 
 function util.fgets(length, file)
   while true do
-    local buffer, errmsg, errnum = cutil.fgets(4096, file)
+    local buffer, errmsg, errnum = cutil.fgets(length, file)
     if errnum ~= errno.EINTR then
       return buffer, errmsg, errnum
     end
