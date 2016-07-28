@@ -15,8 +15,9 @@ int run(servlet *s)
 ```
 
 ## Building
-`modserver` builds on at least the following platforms: FreeBSD, GNU/Linux, Illumos, Mac 
-OS X, NetBSD, and OpenBSD. Run `make` or `gmake` depending on the platform.
+`modserver` builds on at least the following platforms: DragonFly BSD, FreeBSD, 
+GNU/Linux, Illumos, Mac OS X, NetBSD, and OpenBSD. Run `make` or `gmake` depending on the 
+platform.
 
 Individual modules may fail to build if their dependencies are not found. This is normal 
 and does not affect the building of the server. Read the [Makefile](src/Makefile) to get 
@@ -28,6 +29,7 @@ a sense for what is required to build each module.
 - [Lua](https://www.lua.org/)
 - [luaposix](https://github.com/luaposix/luaposix)
 - [luastatic](https://github.com/ers35/luastatic)
+- [LPeg](http://www.inf.puc-rio.br/~roberto/lpeg/)
 
 A copy of all build dependencies are included in source form in the [dep](src/dep/) 
 directory. Modules may require additional dependencies.
