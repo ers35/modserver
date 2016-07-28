@@ -118,7 +118,7 @@ example/c/segfault.c.so: example/c/segfault.c
 example/c/content-length.c.so: example/c/content-length.c
 	cc $(CFLAGS) $(LDFLAGS) $(LDFLAGS) $+ -o $@
 example/c++/hello.cpp.so: example/c++/hello.cpp
-	c++ $(CPPFLAGS) $(LDFLAGS) $(LDFLAGS) $+ -o $@
+	c++ $(CPPFLAGS) $(LDFLAGS) $(LDFLAGS) $+ -o $@ || true
 example/crystal/hello.cr.so: example/crystal/hello.cr
 	crystal build --single-module --link-flags="-shared" $+ -o $@ || true
 example/crystal/test.cr.so: example/crystal/test.cr
