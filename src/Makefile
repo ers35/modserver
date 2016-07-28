@@ -24,6 +24,7 @@ all: \
 	$(LUASRC)/liblua.a \
 	$(LUASRC)/lua \
 	dep/posix.a \
+	dep/lpeg/lpeg.a \
 	api/c/modserver.o \
 	cutil.a \
 	module \
@@ -33,7 +34,7 @@ LUASTATIC = @./$(LUASRC)/lua dep/luastatic.lua
 modserver: all
 	$(LUASTATIC) modserver.lua api/lua/modserver.lua config.lua \
 	 http.lua module/*.lua util.lua \
-		api/c/modserver.o dep/posix.a cutil.a \
+		api/c/modserver.o dep/posix.a dep/lpeg/lpeg.a cutil.a \
 		$(LUASRC)/liblua.a -I$(LUASRC) $(LDFLAGS) $(LDLIBS)
 
 # Build dependencies
@@ -48,6 +49,8 @@ $(LUASRC)/lua:
 dep/posix.a: dep/luaposix/posix.c
 	cc -std=c99 -O2 -c -DLPOSIX_2001_COMPLIANT=1 $+ -Idep/luaposix -I$(LUASRC) \
 		-o dep/posix.o && ar rcs $@ dep/posix.o
+dep/lpeg/lpeg.a:
+	cd dep/lpeg && $(MAKE) LUADIR=../../$(LUASRC)
 api/c/modserver.o: api/c/modserver.c
 	cc -c -O2 -std=c99 $+ -Iapi/c -I$(LUASRC) -o $@
 cutil.a: util.c
@@ -155,6 +158,7 @@ install: modserver
 	cp module/*.so $(INSTALL_TOP)/module
 clean:
 	cd dep/lua-5.2.4 && $(MAKE) clean
+	cd dep/lpeg && $(MAKE) clean
 	rm -f modserver *.o *.so *.a module/*.so modserver.lua.c *.zip \
 		dep/*.o dep/*.a dep/*.so
 	find ./api/ ./example/ -name \*.so -o -name \*.o | xargs rm -f

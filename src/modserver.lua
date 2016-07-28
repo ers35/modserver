@@ -319,7 +319,7 @@ if os.getenv("TEST") == "1" then
     main.parent_loop()
   else
     -- The test process.
-    local inspect = require("inspect")
+    -- local inspect = require("inspect")
     local function connect()
       local fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
       local addr = socket.getaddrinfo("127.0.0.1", "8080", {
@@ -405,7 +405,7 @@ if os.getenv("TEST") == "1" then
           local res = GET(route)
           if not res or not (res.status == 200 or res.status == 204) then
             print(route)
-            print(inspect(res))
+            -- print(inspect(res))
             error()
           end
         end

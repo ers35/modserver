@@ -1,14 +1,58 @@
 local http = {}
 
 local errno = require("posix.errno")
+local lpeg = require("lpeg")
+-- adds locale entries into 'lpeg' table
+lpeg.locale(lpeg)
 local util = require("util")
+
+local parse = {}
+do
+  local SP = lpeg.space ^ 0
+  local CTL = lpeg.cntrl
+  local HR = lpeg.P(string.char(9))
+  local CLRF = lpeg.P("\r\n")
+  -- https://tools.ietf.org/html/rfc2616#section-5.1.1
+  local method =
+  (
+    lpeg.C"OPTIONS" + 
+    lpeg.C"GET" + 
+    lpeg.C"HEAD" + 
+    lpeg.C"POST" + 
+    lpeg.C"PUT" + 
+    lpeg.C"DELETE" + 
+    lpeg.C"TRACE" + 
+    lpeg.C"CONNECT"
+  )
+  -- https://tools.ietf.org/html/rfc2396
+  local request_uri = lpeg.C(lpeg.P("/") * ((lpeg.alnum + lpeg.punct) ^ 0))
+  local HTTP_version = lpeg.C(lpeg.P("HTTP/1.1"))
+  -- https://tools.ietf.org/html/rfc2616#section-5.1
+  -- https://tools.ietf.org/html/rfc7230#section-3.1.1
+  local request_line = method * SP * request_uri * SP * HTTP_version * CLRF
+  -- https://tools.ietf.org/html/rfc2616#section-4.5
+  local separators = lpeg.S([[=()<>@,;:\<>/[]?={}]])
+  -- "If patt is a character set, 1 - patt is its complement."
+  local token = lpeg.C(  (1 - (separators + CTL + " " + HR)) ^ 1  )
+  local field_name = token / string.lower
+  local field_value = lpeg.C(  (lpeg.alnum + lpeg.punct + lpeg.S(" ")) ^ 0  )
+  local header_field = lpeg.Cg(  field_name * SP * ":" * SP * field_value  ) * CLRF ^ -1
+  local entity_header = lpeg.Cf(lpeg.Ct("") * header_field ^ 0, rawset)
+  local request = request_line * entity_header * CLRF
+  
+  parse = {
+    request_line = request_line,
+    header_field = header_field,
+    request = request,
+  }
+end
 
 --[[
 
 --]]
 function http.parse_request_line(line)
-  local method, uri = line:match("(%a+)%s+([%w%p]+)%s+")
-  return method, uri
+  local method, uri, version = parse.request_line:match(line)
+  return method, uri, version
 end
 
 --[[
@@ -43,7 +87,7 @@ end
 Parse a header of the form Name: Value and return the name and value.
 --]]
 function http.parse_header(header)
-  local name, value = header:match("([%a-]+)%s*:%s*(.+)\r\n")
+  local name, value = parse.header_field:match(header)
   return name, value
 end
 
@@ -67,8 +111,8 @@ function http.read_and_parse_request(file)
       return errnum_to_status(errnum)
     end
   end
-  local method, uri = http.parse_request_line(request_line)
-  if not (method and uri) then
+  local method, uri, version = http.parse_request_line(request_line)
+  if not (method and uri and version) then
     return nil, "Bad Request", 400
   end
   local headers = {}
@@ -196,13 +240,30 @@ http.reason_phrase = {
 ------------------------------------------------------------------------------------------
 
 if os.getenv("TEST") == "1" then
-  do
-    local method, uri = http.parse_request_line("GET / HTTP/1.1")
-    assert(method and uri)
+  if true then
+    local method, uri, version = http.parse_request_line("GET / HTTP/1.1\r\n")
+    assert(method == "GET")
+    assert(uri == "/")
+    assert(version == "HTTP/1.1")
+    method, uri = http.parse_request_line("GET    /    HTTP/1.1\r\n")
+    assert(method == "GET")
+    assert(uri == "/")
+    assert(version == "HTTP/1.1")
+    method, uri = http.parse_request_line("GET /foo HTTP/1.1\r\n")
+    assert(method == "GET")
+    assert(uri == "/foo")
+    assert(version == "HTTP/1.1")
+    method, uri = http.parse_request_line("GET /foo?key HTTP/1.1\r\n")
+    assert(method == "GET")
+    assert(uri == "/foo?key")
+    assert(version == "HTTP/1.1")
   end
   
-  do
+  if true then
     local status, reason = http.parse_response_line("HTTP/1.1 200 OK\r\n")
+    assert(status == 200)
+    assert(reason == "OK")
+    status, reason = http.parse_response_line("HTTP/1.1    200      OK\r\n")
     assert(status == 200)
     assert(reason == "OK")
     status, reason = http.parse_response_line("HTTP/1.1 404 Not Found\r\n")
@@ -210,7 +271,7 @@ if os.getenv("TEST") == "1" then
     assert(reason == "Not Found")
   end
   
-  do
+  if true then
     local uri_path, query_string = http.parse_uri("/")
     assert(uri_path == "/")
     assert(query_string == "")
@@ -231,15 +292,30 @@ if os.getenv("TEST") == "1" then
     query = http.parse_query_string([[?key&foo]])
     assert(query["key"])
     assert(query["foo"])
+    query = http.parse_query_string([[?key=value&foo=bar]])
+    assert(query["key"] == "value")
+    assert(query["foo"] == "bar")
   end
   
-  do
+  if true then
     local name, value = http.parse_header("Name: Value\r\n")
-    assert(name == "Name")
+    assert(name == "name")
     assert(value == "Value")
     name, value = http.parse_header("Name:       Value\r\n")
-    assert(name == "Name")
+    assert(name == "name")
     assert(value == "Value")
+    name, value = http.parse_header("Name :Value\r\n")
+    assert(name == "name")
+    assert(value == "Value")
+    name, value = http.parse_header("Name      :Value\r\n")
+    assert(name == "name")
+    assert(value == "Value")
+    name, value = http.parse_header("Name     :      Value\r\n")
+    assert(name == "name")
+    assert(value == "Value")
+    name, value = http.parse_header([[Space-in-Value     :     "[  -  ]"]])
+    assert(name == "space-in-value")
+    assert(value == [["[  -  ]"]])
   end
   
   do
@@ -301,7 +377,7 @@ if os.getenv("TEST") == "1" then
     file:close()
   end
   
-  do
+  if true then
     local file = io.tmpfile()
     local headers = {
       ["name"] = {name = "Name", value = "Value"},
@@ -312,7 +388,7 @@ if os.getenv("TEST") == "1" then
     for header in file:lines("*L") do
       local name, value = http.parse_header(header)
       local pair = headers[name:lower()]
-      assert(pair.name == name)
+      assert(pair.name:lower() == name)
       assert(pair.value == value)
     end
     file:close()
