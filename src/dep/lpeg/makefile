@@ -29,11 +29,11 @@ FILES = lpvm.o lpcap.o lptree.o lpcode.o lpprint.o
 
 # For Linux
 linux:
-	make lpeg.a
+	$(MAKE) lpeg.a
 
 # For Mac OS
 macosx:
-	make lpeg.a
+	$(MAKE) lpeg.a
 
 lpeg.a: $(FILES)
 	ar rcs lpeg.a $(FILES)
