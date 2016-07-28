@@ -98,7 +98,7 @@ One may use rflush() to manually flush the output stream to the user.
 const char reply[] = "hello world";
 rwrite(s, reply, sizeof(reply) - 1);
 */
-void rwrite(servlet *s, const char *buffer, size_t length);
+size_t rwrite(servlet *s, const char *buffer, size_t length);
 
 /*
 Write to the output stream according to the given printf format string and arguments.

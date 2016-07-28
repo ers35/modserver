@@ -6,7 +6,7 @@ import Foreign
 import Foreign.C.String
 import Foreign.C.Types
 
-foreign import ccall "modserver.h rwrite" rwrite :: Ptr () -> CString -> CInt -> IO ()
+foreign import ccall "modserver.h rwrite" rwrite :: Ptr () -> CString -> CInt -> IO CInt
 foreign export ccall run :: Ptr () -> IO CInt
 
 run :: Ptr () -> IO CInt

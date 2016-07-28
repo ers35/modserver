@@ -9,8 +9,8 @@
 #include <lualib.h>
 
 /*
-Users of the API must not have to manage the Lua stack. The API implementation is 
-responsible for managing the Lua stack.
+Users of the API must not have to manage or be aware of the Lua stack. This API 
+implementation is responsible for managing the Lua stack.
 */
 
 const char *get_arg(lua_State *l, const char *name)
@@ -58,7 +58,6 @@ void set_header(lua_State *l, const char *name, const char *value)
   lua_call(l, 3, 0);
 }
 
-// the default status is 200
 void set_status(lua_State *l, int status)
 {
   lua_getfield(l, -1, "set_status");
@@ -68,28 +67,49 @@ void set_status(lua_State *l, int status)
   lua_call(l, 2, 0);
 }
 
-void rwrite(lua_State *l, const char *buffer, size_t length)
+size_t rwrite(lua_State *l, const char *buffer, size_t length)
 {
   lua_getfield(l, -1, "rwrite");
   lua_pushvalue(l, 1);
   lua_pushlstring(l, buffer, length);
-  lua_call(l, 2, 0);
+  /*
+  Use pcall because writing to a socket could fail with EPIPE if the connection is closed 
+  prematurely.
+  */
+  if (lua_pcall(l, 2, LUA_MULTRET, 0) != LUA_OK)
+  {
+    lua_pop(l, 3);
+    return 0;
+  }
+  int isnum;
+  size_t length_written = lua_tonumberx(l, -1, &isnum);
+  lua_pop(l, 1);
+  if (isnum)
+  {
+    return length_written;
+  }
+  return 0;
 }
 
-static void write_status_line_and_headers(lua_State *l)
+static int write_status_line_and_headers(lua_State *l)
 {
   lua_getfield(l, -1, "write_status_line_and_headers");
   lua_pushvalue(l, 1);
-  lua_call(l, 1, 0);
+  if (lua_pcall(l, 1, LUA_MULTRET, 0) != LUA_OK)
+  {
+    lua_pop(l, 3);
+    return -1;
+  }
+  return 0;
 }
 
 static FILE* get_clientfd_write(lua_State *l)
 {
   lua_getfield(l, -1, "clientfd_write");
   luaL_Stream *stream = luaL_checkudata(l, -1, LUA_FILEHANDLE);
-  FILE *f = stream->f;
+  FILE *file = stream->f;
   lua_pop(l, 1);
-  return f;
+  return file;
 }
 
 int rprintf(lua_State *l, const char *format, ...)
@@ -99,9 +119,12 @@ int rprintf(lua_State *l, const char *format, ...)
   lua_pop(l, 1);
   if (!response_headers_written)
   {
-    write_status_line_and_headers(l);
+    if (write_status_line_and_headers(l) != 0)
+    {
+      return -1;
+    }
   }
-  FILE *f = get_clientfd_write(l);
+  FILE *file = get_clientfd_write(l);
   int ret;
   va_list ap0, ap1;
   va_start(ap0, format);
@@ -110,6 +133,10 @@ int rprintf(lua_State *l, const char *format, ...)
   // Per C99: "If n is zero, nothing is written, and s may be a null pointer."
   int len = vsnprintf(NULL, 0, format, ap0);
   va_end(ap0);
+  if (!len)
+  {
+    return -1;
+  }
   if (strcmp(get_method(l), "HEAD") == 0)
   {
     return len;
@@ -120,13 +147,27 @@ int rprintf(lua_State *l, const char *format, ...)
   lua_pop(l, 2);
   if (chunked)
   {
-    ret = fprintf(f, "%X\r\n", len);
+    ret = fprintf(file, "%X\r\n", len);
+    if (!ret)
+    {
+      va_end(ap1);
+      return -1;
+    }
   }
-  ret = vfprintf(f, format, ap1);
+  ret = vfprintf(file, format, ap1);
+  if (!ret)
+  {
+    va_end(ap1);
+    return -1;
+  }
   va_end(ap1);
   if (chunked)
   {
-    fprintf(f, "\r\n");
+    ret = fprintf(file, "\r\n");
+    if (!ret)
+    {
+      return -1;
+    }
   }
   return ret;
 }

@@ -65,7 +65,7 @@ local function set_default_signal_handlers()
   } do
     signal.signal(signal[signal_name], signal.SIG_DFL)
   end
-  -- Prefer handling SIGPIPE at each read call instead of terminating the process.
+  -- Prefer handling SIGPIPE at each write call instead of terminating the process.
   signal.signal(signal.SIGPIPE, signal.SIG_IGN)
 end
 
@@ -196,8 +196,9 @@ function main.handle_request(readf, writef)
       https://tools.ietf.org/html/rfc2616#section-8.2.3
       --]]
       if state.request.headers["expect"] == "100-continue" then
-        state.clientfd_write:write("HTTP/1.1 100 Continue\r\n\r\n")
-        state.clientfd_write:flush()
+        assert(state.clientfd_write:write("HTTP/1.1 100 Continue\r\n\r\n"))
+        -- flush() because the user expects prompt notification of the status.
+        assert(state.clientfd_write:flush())
       end
       if not servlet.initialized then
         if servlet.init then
@@ -214,8 +215,12 @@ function main.handle_request(readf, writef)
       state:rwrite("404 Not Found")
     end
   else
-    state:set_status(errnum)
-    state:rwrite(("%u %s"):format(errnum, errmsg))
+    if errnum then
+      state:set_status(errnum)
+      state:rwrite(("%u %s"):format(errnum, errmsg))
+    else
+      return
+    end
   end
   if not state.response_headers_written then
     --[[
@@ -227,9 +232,14 @@ function main.handle_request(readf, writef)
   end
   if not state.response_headers["content-length"] then
     -- Send the last chunk of the chunked response.
-    state.clientfd_write:write("0\r\n\r\n")
+    assert(state.clientfd_write:write("0\r\n\r\n"))
   end
-  state.clientfd_write:flush()
+  --[[
+  flush() does not need to be called because the stream is automatically flushed when the 
+  connection is closed. However, keep this reminder here because flush() must be used if 
+  persistent keep-alive connections are implemented.
+  --]]
+  -- assert(state.clientfd_write:flush())
 end
 
 --[[
@@ -264,7 +274,11 @@ function main.child_loop(wpipe, listenfds, exit_on_timeout)
               local readf  = assert(stdio.fdopen(clientfd, "r"))
               local clientfd2 = assert(unistd.dup(clientfd))
               local writef = assert(stdio.fdopen(clientfd2, "w"))
-              main.handle_request(readf, writef)
+              -- Use pcall() to catch any errors. The connection is closed regardless.
+              local ok, errstr, errnum = pcall(main.handle_request, readf, writef)
+              if not ok then
+                print(errstr, errnum)
+              end
               readf:close()
               writef:close()
               main.child_is_ready(wpipe, padded_pid)
@@ -291,4 +305,123 @@ function main.child_loop(wpipe, listenfds, exit_on_timeout)
   end
 end
 
-main.parent_loop()
+if os.getenv("TEST") ~= "1" then
+  main.parent_loop()
+end
+
+-- Tests below this line:
+------------------------------------------------------------------------------------------
+
+if os.getenv("TEST") == "1" then
+  local childpid = assert(unistd.fork())
+  if childpid == 0 then
+    -- The server process.
+    main.parent_loop()
+  else
+    -- The test process.
+    local inspect = require("inspect")
+    local function connect()
+      local fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+      local addr = socket.getaddrinfo("127.0.0.1", "8080", {
+        family = socket.AF_INET, socktype = socket.SOCK_STREAM 
+      })
+      assert(socket.connect(fd, addr[1]))
+      local readf = assert(stdio.fdopen(fd, "r"))
+      local writef = assert(stdio.fdopen(fd, "w"))
+      writef:setvbuf("no")
+      return readf, writef
+    end
+    
+    local function GET(uri)
+      local readf, writef = connect()
+      local request_line = ("GET %s HTTP/1.1\r\n\r\n"):format(uri)
+      writef:write(request_line)
+      local status_line = readf:read("*L")
+      if not status_line then
+        return
+      end
+      local status, reason = http.parse_response_line(status_line)
+      local headers = {}
+      while true do
+        local header = readf:read("*L")
+        assert(header)
+        if header == "\r\n" then
+          break
+        end
+        local name, value = http.parse_header(header)
+        headers[name:lower()] = value
+      end
+      readf:close()
+      writef:close()
+      local response = {
+        status = status,
+        reason = reason,
+        headers = headers,
+      }
+      return response
+    end
+    
+    local function invalid_requests()
+      local requests = {
+        "GET / HTTP/1.1",
+        "GET / HTTP/1.1\r\n",
+        "GET / HTTP/1.1\r\n" .. "Name: " .. (" "):rep(8192) .. "\r\n\r\n",
+      }
+      for _, request in ipairs(requests) do
+        local readf, writef = connect()
+        writef:write(request)
+        -- readf:read("*L")
+        readf:close()
+        writef:close()
+      end
+    end
+    
+    local function slowloris()
+      local connections = {}
+      for i = 1, 500 do
+        local readf, writef = connect()
+        writef:write("GET")
+        table.insert(connections, {readf = readf, writef = writef})
+      end
+      unistd.sleep(60)
+      for _, connection in ipairs(connections) do
+        connection.readf:close()
+        connection.writef:close()
+      end
+    end
+  
+    local function test()
+      local res = GET("/")
+      -- print(inspect(res))
+      assert(res.reason == "OK")
+      
+      -- slowloris(); do return end
+      
+      -- invalid_requests(); do return end
+      
+      for i = 1, 1000 do
+        for route, _ in pairs(config.routes) do
+          -- print("GET", route)
+          local res = GET(route)
+          if not res or not (res.status == 200 or res.status == 204) then
+            print(route)
+            print(inspect(res))
+            error()
+          end
+        end
+      end
+    end
+    
+    local ok, errstr = pcall(test)
+    if not ok then
+      print(errstr)
+    else
+      print("modserver.lua test complete")
+    end
+    
+    signal.kill(0, signal.SIGKILL)
+    while (wait.wait()) do
+      -- Wait for children to exit.
+    end
+  end
+end

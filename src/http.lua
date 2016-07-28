@@ -4,20 +4,6 @@ local errno = require("posix.errno")
 local util = require("util")
 
 --[[
-Take a query string of the form "?key=value&foo=bar" and return a table 
-{key = value, foo = bar}
---]]
-local function parse_query_string(query)
-  if query then
-    local tbl = {}
-    for key, value in query:gmatch([[[?&]([%w%.]+)=([%w%.]+)]]) do
-      tbl[key] = value
-    end
-    return tbl
-  end
-end
-
---[[
 
 --]]
 function http.parse_request_line(line)
@@ -28,9 +14,29 @@ end
 --[[
 
 --]]
+function http.parse_response_line(line)
+  local status, reason = line:match("%s+(%d+)%s+([%a%s]+)\r\n")
+  return tonumber(status), reason
+end
+
+--[[
+
+--]]
 function http.parse_uri(uri)
   local path, query_string = uri:match("^([/%w%a-+%.]+)([?]?.*)")
   return path, query_string
+end
+
+--[[
+Take a query string of the form "?key=value&foo=bar" and return a table 
+{key = value, foo = bar}
+--]]
+function http.parse_query_string(query)
+  local tbl = {}
+  for key, value in query:gmatch([[[?&]([%w%.]+)=?([%w%.]*)]]) do
+    tbl[key] = value
+  end
+  return tbl
 end
 
 --[[
@@ -55,7 +61,11 @@ Read the status line and headers from an HTTP request. The body is left unread.
 function http.read_and_parse_request(file)
   local request_line, errmsg, errnum = util.fgets(4096, file)
   if not request_line then
-    return errnum_to_status(errnum)
+    if errmsg == "EOF" then
+      return nil, nil, nil
+    else
+      return errnum_to_status(errnum)
+    end
   end
   local method, uri = http.parse_request_line(request_line)
   if not (method and uri) then
@@ -66,7 +76,11 @@ function http.read_and_parse_request(file)
   while true do
     local header, errmsg, errnum = util.fgets(4096, file)
     if not header then
-      return errnum_to_status(errnum)
+      if errmsg == "EOF" then
+        return nil, nil, nil
+      else
+        return errnum_to_status(errnum)
+      end
     end
     bytes_read = bytes_read + #header
     if bytes_read > 4096 then
@@ -91,7 +105,7 @@ function http.read_and_parse_request(file)
     uri = uri,
     uri_path = uri_path,
     headers = headers,
-    query = parse_query_string(query_string),
+    query = http.parse_query_string(query_string or ""),
   }
   return request
 end
@@ -99,45 +113,19 @@ end
 function http.write_status_line(file, status)
   local status_line 
     = ("HTTP/1.1 %u %s\r\n"):format(status, http.reason_phrase[status] or "")
-  file:write(status_line)
+  assert(file:write(status_line))
 end
 
 function http.write_headers(file, headers)
   for _, pair in pairs(headers) do
-    file:write(pair.name)
-    file:write(": ")
-    file:write(pair.value)
-    file:write("\r\n")
+    assert(file:write(pair.name, ": ", pair.value, "\r\n"))
   end
-  file:write("\r\n")
 end
 
 function http.write_chunk(file, chunk)
-  file:write(("%X\r\n"):format(#chunk))
-  file:write(chunk)
-  file:write("\r\n")
-end
-
-function http.read_chunk(file, length)
-  local strhexlength = util.fgets(length, file)
-  if not strhexlength then
-    return nil
+  if assert(file:write(("%X\r\n"):format(#chunk), chunk, "\r\n")) then
+    return #chunk
   end
-  local chunk_length = tonumber("0x" .. strhexlength)
-  if not chunk_length then
-    return nil
-  end
-  if chunk_length == 0 then
-    return nil
-  end
-  local data = util.fgets(chunk_length, file)
-  if not data then
-    return nil
-  end
-  if util.fgets(2, file) ~= "\r\n" then
-    return nil
-  end
-  return data
 end
 
 -- https://tools.ietf.org/html/rfc2616#section-10
@@ -204,35 +192,156 @@ http.reason_phrase = {
   [511] = "Network Authentication Required",
 }
 
-function http.test()
-  local inspect = require("inspect")
-  local function req(tbl)
-    local file = io.tmpfile()
-    local request = table.concat(tbl, "\r\n")
-    file:write(request)
-    file:seek("set")
-    local parsed_request = http.read_and_parse_request(file)
-    print(inspect(parsed_request), "\n")
-    file:close()
-    return parsed_request
+-- Tests below this line:
+------------------------------------------------------------------------------------------
+
+if os.getenv("TEST") == "1" then
+  do
+    local method, uri = http.parse_request_line("GET / HTTP/1.1")
+    assert(method and uri)
   end
   
-  assert(req{
-  "GET / HTTP/1.1",
-  "Host: www.example.com",
-  "User-Agent: foo",
-  "\r\n",
-  })
+  do
+    local status, reason = http.parse_response_line("HTTP/1.1 200 OK\r\n")
+    assert(status == 200)
+    assert(reason == "OK")
+    status, reason = http.parse_response_line("HTTP/1.1 404 Not Found\r\n")
+    assert(status == 404)
+    assert(reason == "Not Found")
+  end
   
-  assert(req{
-  "GET /?foo=bar&abc=123 HTTP/1.1",
-  -- the client tries to send infinitely long lines
-  "foo: " .. (" "):rep(9999999) .. "bar",
-  "Host: www.example.com",
-  "User-Agent: foo",
-  "\r\n",
-  } == nil)
+  do
+    local uri_path, query_string = http.parse_uri("/")
+    assert(uri_path == "/")
+    assert(query_string == "")
+    uri_path, query_string = http.parse_uri("/?key")
+    assert(uri_path == "/")
+    assert(query_string == "?key")
+    uri_path, query_string = http.parse_uri("/foo?key=value")
+    assert(uri_path == "/foo")
+    assert(query_string == "?key=value")
+  end
+  
+  do
+    local query = http.parse_query_string([[?key=value&foo=bar]])
+    assert(query["key"] == "value")
+    assert(query["foo"] == "bar")
+    query = http.parse_query_string([[?key]])
+    assert(query["key"])
+    query = http.parse_query_string([[?key&foo]])
+    assert(query["key"])
+    assert(query["foo"])
+  end
+  
+  do
+    local name, value = http.parse_header("Name: Value\r\n")
+    assert(name == "Name")
+    assert(value == "Value")
+    name, value = http.parse_header("Name:       Value\r\n")
+    assert(name == "Name")
+    assert(value == "Value")
+  end
+  
+  do
+    local _, errstr, errnum = errnum_to_status(errno.EAGAIN)
+    assert(errnum == 408)
+    assert(errstr == http.reason_phrase[errnum])
+    
+    local _, errstr, errnum = errnum_to_status(errno.EINTR)
+    assert(errnum == 400)
+    assert(errstr == http.reason_phrase[errnum])
+  end
+  
+  do
+    local function request(tbl)
+      local file = io.tmpfile()
+      local request = table.concat(tbl, "\r\n")
+      assert(file:write(request))
+      assert(file:seek("set"))
+      local parsed_request, errstr, errnum = http.read_and_parse_request(file)
+      -- local inspect = require("inspect"); print(inspect(parsed_request), "\n")
+      file:close()
+      return parsed_request, errstr, errnum
+    end
+    
+    local pr, errstr, errnum = request{
+      "GET /foo?key=value HTTP/1.1",
+      "Host: www.example.com",
+      "User-Agent: foo",
+      "\r\n"
+    }
+    assert(pr.method == "GET")
+    assert(pr.uri == "/foo?key=value")
+    assert(pr.uri_path == "/foo")
+    assert(pr.query["key"] == "value")
+    assert(pr.headers["host"] == "www.example.com")
+    assert(pr.headers["user-agent"] == "foo")
+    
+    pr, errstr, errnum = request{
+      "GET    /            HTTP/1.1",
+      "Host: www.example.com",
+      "User-Agent: foo",
+      "\r\n",
+    }
+    assert(pr.method == "GET")
+    assert(pr.uri == "/")
+    
+    pr, errstr, errnum = request{
+    }
+    assert(pr == nil)
+    assert(errstr == nil)
+    assert(errnum == nil)
+  end
+  
+  do
+    local file = io.tmpfile()
+    http.write_status_line(file, 200)
+    assert(file:seek("set"))
+    assert(file:read("*all") == "HTTP/1.1 200 OK\r\n")
+    file:close()
+  end
+  
+  do
+    local file = io.tmpfile()
+    local headers = {
+      ["name"] = {name = "Name", value = "Value"},
+      ["foo"] = {name = "Foo", value = "Bar"},
+    }
+    http.write_headers(file, headers)
+    assert(file:seek("set"))
+    for header in file:lines("*L") do
+      local name, value = http.parse_header(header)
+      local pair = headers[name:lower()]
+      assert(pair.name == name)
+      assert(pair.value == value)
+    end
+    file:close()
+  end
+  
+  do
+    local file = io.tmpfile()
+    local buffer = "hello world"
+    http.write_chunk(file, buffer)
+    assert(file:seek("set"))
+    local chunk = file:read("*all")
+    assert(chunk == "B\r\n" .. buffer .. "\r\n")
+    file:close()
+    
+    file = io.tmpfile()
+    buffer = ""
+    http.write_chunk(file, buffer)
+    assert(file:seek("set"))
+    chunk = file:read("*all")
+    assert(chunk == "0\r\n\r\n")
+    file:close()
+  end
+  
+  do
+    assert(http.reason_phrase[200] == "OK")
+    assert(http.reason_phrase[404] == "Not Found")
+  end
+  
+  print("http.lua test complete")
 end
--- http.test()
 
 return http

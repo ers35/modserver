@@ -28,9 +28,10 @@ all: \
 	cutil.a \
 	module \
 	example
-	
+
+LUASTATIC = @./$(LUASRC)/lua dep/luastatic.lua
 modserver: all
-	@./$(LUASRC)/lua dep/luastatic.lua modserver.lua api/lua/modserver.lua config.lua \
+	$(LUASTATIC) modserver.lua api/lua/modserver.lua config.lua \
 	 http.lua module/*.lua util.lua \
 		api/c/modserver.o dep/posix.a cutil.a \
 		$(LUASRC)/liblua.a -I$(LUASRC) $(LDFLAGS) $(LDLIBS)
@@ -81,6 +82,7 @@ module/ruby.so: module/ruby.c
 example: CFLAGS = -std=c99 -fPIC -shared -Wall -Wextra -Iapi/c -Wno-unused-parameter
 example: CPPFLAGS = -fPIC -shared -Wall -Wextra -Iapi/c -Wno-unused-parameter
 example: example/c/hello.c.so \
+	example/c/test.c.so \
 	example/c/sleep.c.so \
 	example/c/arg.c.so \
 	example/c/file.c.so \
@@ -99,6 +101,8 @@ example: example/c/hello.c.so \
 	example/rust/test.rs.so
 
 example/c/hello.c.so: example/c/hello.c
+	cc $(CFLAGS) $(LDFLAGS) $+ -o $@
+example/c/test.c.so: example/c/test.c
 	cc $(CFLAGS) $(LDFLAGS) $+ -o $@
 example/c/sleep.c.so: example/c/sleep.c
 	cc $(CFLAGS) $(LDFLAGS) $(LDFLAGS) $+ -o $@
@@ -142,6 +146,8 @@ example/rust/test.rs.so: example/rust/test.rs
 
 run: modserver
 	./modserver config.conf
+test: modserver
+	TEST=1 ./modserver config.conf
 INSTALL_TOP = /tmp/opt/modserver
 install: modserver
 	mkdir -p $(INSTALL_TOP) $(INSTALL_TOP)/module

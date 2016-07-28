@@ -73,9 +73,9 @@ static SCM api_rwrite(SCM s_, SCM buffer_)
   servlet *s = scm_to_pointer(s_);
   size_t length;
   char *str = scm_to_utf8_stringn(buffer_, &length);
-  rwrite(s, str, length);
+  size_t ret = rwrite(s, str, length);
   free(str);
-  return SCM_UNSPECIFIED;
+  return scm_from_size_t(ret);
 }
 
 static SCM api_rflush(SCM s_)

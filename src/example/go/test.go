@@ -17,7 +17,9 @@ func run(s unsafe.Pointer) int {
   api.Rwrite(s, method)
   api.Rwrite(s, "\n")
   header := api.Get_header(s, "User-Agent")
-  api.Rwrite(s, header)
+  if len(header) > 0 {
+    api.Rwrite(s, header)
+  }
   api.Rwrite(s, "\n")
   api.Rflush(s)
   return 0

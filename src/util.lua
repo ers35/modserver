@@ -1,5 +1,7 @@
 local util = {}
 
+local cutil = require("cutil")
+local errno = require("posix.errno")
 local fcntl = require("posix.fcntl")
 
 function util.set_nonblocking(fd)
@@ -7,12 +9,13 @@ function util.set_nonblocking(fd)
   fcntl.fcntl(fd, fcntl.F_SETFL, bit32.bor(current_flags, fcntl.O_NONBLOCK))
 end
 
---[[
-Make the functions from the cutil C module available in the util module. 
---]]
-local cutil = require("cutil")
-for k, v in pairs(cutil) do
-  util[k] = v
+function util.fgets(length, file)
+  while true do
+    local buffer, errmsg, errnum = cutil.fgets(4096, file)
+    if errnum ~= errno.EINTR then
+      return buffer, errmsg, errnum
+    end
+  end
 end
 
 function util.test()

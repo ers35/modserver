@@ -8,6 +8,7 @@
 #include <lua.h>
 #include <lualib.h>
 // Python
+#define PY_SSIZE_T_CLEAN
 #include <Python.h>
 // Local
 #include "modserver.h"
@@ -87,10 +88,15 @@ static PyObject* api_rwrite(PyObject *self, PyObject *args)
 {
   PyObject *capsule;
   const char *reply;
-  int length;
+  ssize_t length;
   pyassert(PyArg_ParseTuple(args, "Os#", &capsule, &reply, &length));
-  servlet *s = get_servlet(capsule);
-  rwrite(s, reply, length);
+  if (length > 0)
+  {
+    servlet *s = get_servlet(capsule);
+    size_t ret = rwrite(s, reply, length);
+    PyObject *ret_obj = Py_BuildValue("#", (size_t)ret);
+    return ret_obj;
+  }
   Py_RETURN_NONE;
 }
 

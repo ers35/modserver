@@ -69,8 +69,8 @@ static VALUE api_rwrite(VALUE self, VALUE s_, VALUE buffer)
   servlet *s = (servlet*)NUM2ULL(s_);
   const void *ptr = StringValuePtr(buffer);
   int length = RSTRING_LEN(buffer);
-  rwrite(s, ptr, length);
-  return Qnil;
+  size_t ret = rwrite(s, ptr, length);
+  return ULL2NUM(ret);
 }
 
 static VALUE api_rflush(VALUE self, VALUE s_)

@@ -49,9 +49,9 @@ func Set_header(s unsafe.Pointer, name string, value string) {
   C.set_header((*C.servlet)(s), (*C.char)(name_ptr), (*C.char)(value_ptr))
 }
 
-func Rwrite(s unsafe.Pointer, buffer string) {
+func Rwrite(s unsafe.Pointer, buffer string) (C.size_t) {
   buffer_ptr := to_ptr(buffer)
-  C.rwrite((*C.servlet)(s), (*C.char)(buffer_ptr), C.size_t(len(buffer)))
+  return C.rwrite((*C.servlet)(s), (*C.char)(buffer_ptr), C.size_t(len(buffer)))
 }
 
 func Rflush(s unsafe.Pointer) {

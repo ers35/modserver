@@ -7,5 +7,7 @@ def run(s):
   if arg:
     rwrite(s, arg + "\n")
   rwrite(s, get_method(s)  + "\n")
-  rwrite(s, get_header(s, "User-Agent") + "\n")
+  header = get_header(s, "User-Agent")
+  if header:
+    rwrite(s, header + "\n")
   rflush(s)

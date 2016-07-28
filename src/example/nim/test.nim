@@ -20,7 +20,7 @@ proc run(s: PServlet): int{.exportc.} =
     discard rprintf(s, "get_method(s) = %s\n", the_method)
 
   var reply = "hello from Nim"
-  rwrite(s, reply, reply.len)
+  discard rwrite(s, reply, reply.len)
   
   rflush(s)
   

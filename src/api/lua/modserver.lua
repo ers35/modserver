@@ -27,8 +27,8 @@ function api:get_header(name)
 end
 
 function api:write_status_line_and_headers()
-  local f = self.clientfd_write
-  http.write_status_line(f, self.status or 200)
+  local file = self.clientfd_write
+  http.write_status_line(file, self.status or 200)
   self:set_header("Server", "modserver")
   if not self.response_headers["content-length"] then
     self:set_header("Transfer-Encoding", "chunked")
@@ -39,32 +39,39 @@ function api:write_status_line_and_headers()
   if not self.response_headers["connection"] then
     self:set_header("Connection", "close")
   end
-  http.write_headers(f, self.response_headers)
-  f:flush()
+  http.write_headers(file, self.response_headers)
+  assert(file:write("\r\n"))
   self.response_headers_written = true
 end
 
--- FIXME: make sure f:write() does not do a partial write with a really large buffer.
--- if so, see if I can loop on f:write() to output all the data.
-
-function api:rwrite(buffer)
-  local f = self.clientfd_write
+local function api_rwrite(self, buffer)
+  local file = self.clientfd_write
   if not self.response_headers_written then
     self:write_status_line_and_headers()
   end
   if self:get_method() == "HEAD" then
-    return
+    return #buffer
   end
   if not self.response_headers["content-length"] then
-    http.write_chunk(f, buffer)
+    return http.write_chunk(file, buffer)
   else
-    f:write(buffer)
+    if assert(file:write(buffer)) then
+      return #buffer
+    end
   end
 end
 
+function api:rwrite(buffer)
+  local ok, ret, errstr, errnum = pcall(api_rwrite, self, buffer)
+  if ok then
+    return #buffer
+  end
+  return ret, errstr, errnum
+end
+
 function api:rflush()
-  local f = self.clientfd_write
-  f:flush()
+  local file = self.clientfd_write
+  file:flush()
 end
 
 return api
