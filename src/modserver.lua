@@ -119,7 +119,7 @@ function main.parent_loop()
     Wait up to one second for messages from children.
     --]]
     local ret = poll.poll(poll_fds, 1000)
-    if ret > 0 then
+    if ret and ret > 0 then
       for fd in pairs(poll_fds) do
         if poll_fds[fd].revents.IN then
           repeat
