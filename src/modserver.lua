@@ -32,64 +32,26 @@ end
 local main = {}
 
 --[[
-Children use these functions to communicate their state to the parent over a pipe.
-
-A child process can be in one of two states:
-  (+) Waiting on accept() to handle a request.
-  (-) Busy handling a request or otherwise not ready.
---]]
-function main.child_is_ready(wpipe, padded_pid)
-  unistd.write(wpipe, padded_pid .. "+")
-end
-function main.child_is_busy(wpipe, padded_pid)
-  unistd.write(wpipe, padded_pid .. "-")
-end
-
---[[
-A process may only set one signal handler per signal type. Certain language 
-implementations set signal handlers. This poses a problem because the handlers conflict 
-with each other. Assume that the signal handlers are only used for debugging crashes and 
-set them all to SIG_DFL to have the parent process report the crash instead. 
-Unfortunately, useful debugging information like stack traces are lost. Perhaps creating 
-a core dump when a servlet crashes is a reasonable compromise.
---]]
-local function set_default_signal_handlers()
-  for _, signal_name in ipairs{
-    "SIGINT",
-    "SIGSEGV",
-    "SIGABRT",
-    "SIGFPE",
-    "SIGILL",
-    "SIGBUS",
-    "SIGCHLD",
-  } do
-    signal.signal(signal[signal_name], signal.SIG_DFL)
-  end
-  -- Prefer handling SIGPIPE at each write call instead of terminating the process.
-  signal.signal(signal.SIGPIPE, signal.SIG_IGN)
-end
-
---[[
 The role of the parent process is to manage the number of child processes.
 --]]
 function main.parent_loop()
-  -- The parent and children communicate over a pipe.
-  local rpipe, wpipe = unistd.pipe()
-
-  set_default_signal_handlers()
-  
+  util.set_default_signal_handlers()
   -- Terminate the server when Ctrl+C is pressed.
   signal.signal(signal.SIGINT, function()
     signal.kill(0, signal.SIGKILL)
+    -- wait() is never actually reached because the SIGKILL is also sent to the parent.
     while (wait.wait()) do
       -- Wait for children to exit.
     end
   end)
-
+  
+  -- The parent and children communicate over a pipe.
+  local read_pipe, write_pipe = unistd.pipe()
+  
   local poll_fds = {
-    [rpipe] = {events = {IN = true}},
+    [read_pipe] = {events = {IN = true}},
   }
-  util.set_nonblocking(rpipe)
+  util.set_nonblocking(read_pipe)
 
   -- Keep track of forked child processes by their pid.
   local children = {}
@@ -105,8 +67,8 @@ function main.parent_loop()
       local childpid = assert(unistd.fork())
       if childpid == 0 then
         -- a new child process
-        unistd.close(rpipe)
-        main.child_loop(wpipe, config.listenfds, num_children > 0)
+        unistd.close(read_pipe)
+        main.child_loop(write_pipe, config.listenfds, num_children > 0)
         error("returned from child_loop()")
       elseif childpid > 0 then
         -- the same parent process
@@ -124,7 +86,7 @@ function main.parent_loop()
         if poll_fds[fd].revents.IN then
           repeat
             -- The parent waits on one pipe for messages from many children.
-            local data, errmsg, errnum = unistd.read(rpipe, 21 * 128)
+            local data, errmsg, errnum = unistd.read(read_pipe, 21 * 128)
             if data then
               -- The message uses this text format:
               -- [20 byte padded string pid][1 byte command]
@@ -177,11 +139,11 @@ end
 Read the request, choose the servlet to handle the request, run the servlet, and close 
 the connection.
 --]]
-function main.handle_request(readf, writef)
+function main.handle_request(read_file, write_file)
   local state = {
     request = {method = "", headers = {}, query = {}},
-    clientfd_read = readf,
-    clientfd_write = writef,
+    clientfd_read = read_file,
+    clientfd_write = write_file,
     response_headers_written = false,
     response_headers = {},
   }
@@ -204,10 +166,11 @@ function main.handle_request(readf, writef)
         if servlet.init then
           servlet.init(state)
           -- Override languages that set their own signal handlers.
-          set_default_signal_handlers()
+          util.set_default_signal_handlers()
           servlet.initialized = true
         end
       end
+      -- Call the servlet to handle the request.
       servlet.run(state)
     else
       -- No servlet can handle the request.
@@ -219,6 +182,10 @@ function main.handle_request(readf, writef)
       state:set_status(errnum)
       state:rwrite(("%u %s"):format(errnum, errmsg))
     else
+      --[[
+      An error occured such that the connection is closed without writing an error 
+      message to the user.
+      --]]
       return
     end
   end
@@ -243,16 +210,30 @@ function main.handle_request(readf, writef)
 end
 
 --[[
+Children use these functions to communicate their state to the parent over a pipe.
+
+A child process can be in one of two states:
+  (+) Waiting on accept() to handle a request.
+  (-) Busy handling a request or otherwise not ready.
+--]]
+function main.child_is_ready(write_pipe, padded_pid)
+  unistd.write(write_pipe, padded_pid .. "+")
+end
+function main.child_is_busy(write_pipe, padded_pid)
+  unistd.write(write_pipe, padded_pid .. "-")
+end
+
+--[[
 Each child process waits to accept one connection on the same server socket. The kernel 
 load balances the connections across all child processes. The child tells the parent of 
 two events: before the child waits on accept and after the child accepts a connection. 
 The parent uses these events to keep track of how many child are ready to handle new 
 connections.
 --]]
-function main.child_loop(wpipe, listenfds, exit_on_timeout)
+function main.child_loop(write_pipe, listenfds, exit_on_timeout)
   local mypid = unistd.getpid()
   local padded_pid = ("%020u"):format(mypid)
-  main.child_is_ready(wpipe, padded_pid)
+  main.child_is_ready(write_pipe, padded_pid)
   local poll_fds = {}
   for i, fd in ipairs(listenfds) do
     poll_fds[fd] = {events = {IN = true}}
@@ -265,23 +246,23 @@ function main.child_loop(wpipe, listenfds, exit_on_timeout)
           if poll_fds[fd].revents.IN then
             local clientfd, _, _ = socket.accept(fd)
             if clientfd then
-              main.child_is_busy(wpipe, padded_pid)
+              main.child_is_busy(write_pipe, padded_pid)
               --[[
               A read from the socket returns with an error after five seconds of 
               inactivity rather than blocking forever.
               --]]
               socket.setsockopt(clientfd, socket.SOL_SOCKET, socket.SO_RCVTIMEO, 5, 0)
-              local readf  = assert(stdio.fdopen(clientfd, "r"))
+              local read_file  = assert(stdio.fdopen(clientfd, "r"))
               local clientfd2 = assert(unistd.dup(clientfd))
-              local writef = assert(stdio.fdopen(clientfd2, "w"))
+              local write_file = assert(stdio.fdopen(clientfd2, "w"))
               -- Use pcall() to catch any errors. The connection is closed regardless.
-              local ok, errstr, errnum = pcall(main.handle_request, readf, writef)
+              local ok, errstr, errnum = pcall(main.handle_request, read_file, write_file)
               if not ok then
                 print(errstr, errnum)
               end
-              readf:close()
-              writef:close()
-              main.child_is_ready(wpipe, padded_pid)
+              read_file:close()
+              write_file:close()
+              main.child_is_ready(write_pipe, padded_pid)
             else
               if errnum == errno.EAGAIN or errnum == errno.EWOULDBLOCK then
                 -- accept() timed out due to SO_RCVTIMEO.
