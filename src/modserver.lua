@@ -67,16 +67,20 @@ function main.parent_loop()
     --]]
     assert(num_children_ready >= 0, "negative num_children_ready")
     if num_children_ready == 0 then
-      local childpid = assert(unistd.fork())
-      if childpid == 0 then
-        -- a new child process
-        unistd.close(read_pipe)
-        main.child_loop(write_pipe, config.listenfds, num_children > 0)
-        error("returned from child_loop()")
-      elseif childpid > 0 then
-        -- the same parent process
-        children[childpid] = {state = "f"}
-        num_children = num_children + 1
+      local childpid, errstr, errmsg = unistd.fork()
+      if childpid then
+        if childpid == 0 then
+          -- a new child process
+          unistd.close(read_pipe)
+          main.child_loop(write_pipe, config.listenfds, num_children > 0)
+          error("returned from child_loop()")
+        elseif childpid > 0 then
+          -- the same parent process
+          children[childpid] = {state = "f"}
+          num_children = num_children + 1
+        end
+      else
+        print(errstr, errmsg)
       end
     end
     
