@@ -5,6 +5,21 @@
 #include <lauxlib.h>
 #include <lua.h>
 #include <lualib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+static int cutil_stat_mtime(lua_State *l)
+{
+  const char *path = luaL_checkstring(l, -1);
+  struct stat s;
+  if (stat(path, &s) == -1)
+  {
+    return 0;
+  }
+  lua_pushnumber(l, s.st_mtime);
+  return 1;
+}
 
 /*
 Lua's file:read() function lacks a way to read a line of a limited length. That is an 
@@ -46,6 +61,7 @@ static int cutil_fgets(lua_State *l)
 static const luaL_Reg cutil[] = 
 {
   {"fgets", cutil_fgets},
+  {"stat_mtime", cutil_stat_mtime},
   {NULL, NULL},
 };
 

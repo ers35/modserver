@@ -19,6 +19,10 @@ function util.fgets(length, file)
   end
 end
 
+function util.stat_mtime(path)
+  return cutil.stat_mtime(path)
+end
+
 --[[
 A process may only set one signal handler per signal type. Certain language 
 implementations set signal handlers. This poses a problem because the handlers conflict 

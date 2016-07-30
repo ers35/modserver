@@ -80,7 +80,7 @@ function main.parent_loop()
     --[[
     Wait up to one second for messages from children.
     --]]
-    local ret = poll.poll(poll_fds, 1000)
+    local ret = poll.poll(poll_fds, config.cfg.poll_timeout)
     if ret and ret > 0 then
       for fd in pairs(poll_fds) do
         if poll_fds[fd].revents.IN then
@@ -132,6 +132,33 @@ function main.parent_loop()
         end
       end
     until not pid or pid == 0 or pid == -1
+    
+    --[[
+    Check the file modification time of each servlet to see if a reload is necessary.
+    --]]
+    if config.cfg.reload then
+      for path, servlet in pairs(config.servlets) do 
+        if servlet.file_modified_time < util.stat_mtime(servlet.path) then
+          print("reload")
+          for strpid, _ in pairs(children) do
+            signal.kill(tonumber(strpid), signal.SIGKILL)
+          end
+          while (wait.wait()) do
+            -- Wait for children to exit.
+          end
+          unistd.close(read_pipe)
+          unistd.close(write_pipe)
+          for _, fd in ipairs(config.listenfds) do
+            unistd.close(fd)
+          end
+          --[[
+          Example arguments for the call below:
+          unistd.execp("./modserver", {[0] = "./modserver", [1] = "config.conf"})
+          --]]
+          unistd.execp(arg[0], {[0] = arg[0], [1] = arg[1]})
+        end
+      end
+    end
   end
 end
 

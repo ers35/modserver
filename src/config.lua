@@ -9,8 +9,13 @@ local socket = require("posix.sys.socket")
 local grp = require("posix.grp")
 local pwd = require("posix.pwd")
 local unistd = require("posix.unistd")
+local util = require("util")
 
 local config = {
+  cfg = {
+    reload = false,
+    poll_timeout = 1000,
+  },
   modules = {},
   servlets = {},
   routes = {},
@@ -132,15 +137,33 @@ function config.load_servlet(path, route)
   if mod then
     local ok, servlet = pcall(mod.load_servlet, path)
     if ok and servlet then
-      servlet.initialized = false
-      config.servlets[path] = servlet
       config.routes[route] = servlet
       -- print("loaded servlet:", path)
     else
       print("failed to load servlet:", servlet)
+      servlet = {}
     end
+    servlet.initialized = false
+    servlet.path = path
+    servlet.file_modified_time = util.stat_mtime(path)
+    config.servlets[path] = servlet
   else
     print("no module can handle extension:", extension)
+  end
+end
+
+--[[
+Automatically reload the server when a servlet is modified.
+
+This is useful for development.
+--]]
+function config.reload(str)
+  if str == "on" then
+    config.cfg.reload = true
+    config.cfg.poll_timeout = 100
+  else
+    config.cfg.reload = false
+    config.cfg.poll_timeout = 1000
   end
 end
 
