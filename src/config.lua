@@ -8,6 +8,7 @@ example filename is config.conf and not config.lua.
 local socket = require("posix.sys.socket")
 local grp = require("posix.grp")
 local pwd = require("posix.pwd")
+local stat = require("posix.sys.stat")
 local unistd = require("posix.unistd")
 local util = require("util")
 
@@ -145,7 +146,12 @@ function config.load_servlet(path, route)
     end
     servlet.initialized = false
     servlet.path = path
-    servlet.file_modified_time = util.stat_mtime(path)
+    local stat_tbl = stat.stat(servlet.path)
+    if stat_tbl then
+      servlet.file_modified_time = stat_tbl.st_mtime
+    else
+      servlet.file_modified_time = 0
+    end
     config.servlets[path] = servlet
   else
     print("no module can handle extension:", extension)

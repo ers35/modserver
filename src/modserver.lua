@@ -11,6 +11,7 @@ networking. See https://github.com/luaposix/luaposix for more details.
 local errno = require("posix.errno")
 local signal = require("posix.signal")
 local socket = require("posix.sys.socket")
+local stat = require("posix.sys.stat")
 local stdio = require("posix.stdio")
 local poll = require("posix.poll")
 local unistd = require("posix.unistd")
@@ -138,7 +139,8 @@ function main.parent_loop()
     --]]
     if config.cfg.reload then
       for path, servlet in pairs(config.servlets) do 
-        if servlet.file_modified_time < util.stat_mtime(servlet.path) then
+        local stat_tbl = stat.stat(servlet.path)
+        if stat_tbl and servlet.file_modified_time < stat_tbl.st_mtime then
           print("reload")
           for strpid, _ in pairs(children) do
             signal.kill(tonumber(strpid), signal.SIGKILL)
@@ -146,6 +148,7 @@ function main.parent_loop()
           while (wait.wait()) do
             -- Wait for children to exit.
           end
+          -- TODO: investigate FD_CLOEXEC to eliminate the code below
           unistd.close(read_pipe)
           unistd.close(write_pipe)
           for _, fd in ipairs(config.listenfds) do
