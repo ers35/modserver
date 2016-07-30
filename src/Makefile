@@ -95,6 +95,7 @@ example: example/c/hello.c.so \
 	example/crystal/hello.cr.so \
 	example/crystal/test.cr.so \
 	example/d/hello.d.so \
+	example/d/test.d.so \
 	example/go/hello.go.so \
 	example/go/test.go.so \
 	example/haskell/hello.hs.so \
@@ -124,6 +125,8 @@ example/crystal/hello.cr.so: example/crystal/hello.cr
 example/crystal/test.cr.so: example/crystal/test.cr
 	crystal build --single-module --link-flags="-shared" $+ -o $@ || true
 example/d/hello.d.so: example/d/hello.d
+	ldc2 -shared $+ -Iapi/d -od=example/d/ -of $@ || true
+example/d/test.d.so: example/d/test.d
 	ldc2 -shared $+ -Iapi/d -od=example/d/ -of $@ || true
 PWD = $(shell pwd)
 GOPATH = $(PWD)/api/go
