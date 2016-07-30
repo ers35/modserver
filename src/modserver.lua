@@ -47,7 +47,9 @@ function main.parent_loop()
   end)
   
   -- The parent and children communicate over a pipe.
-  local read_pipe, write_pipe = unistd.pipe()
+  local read_pipe, write_pipe = assert(unistd.pipe())
+  util.set_close_on_exec(read_pipe)
+  util.set_close_on_exec(write_pipe)
   
   local poll_fds = {
     [read_pipe] = {events = {IN = true}},
@@ -134,10 +136,10 @@ function main.parent_loop()
       end
     until not pid or pid == 0 or pid == -1
     
-    --[[
-    Check the file modification time of each servlet to see if a reload is necessary.
-    --]]
     if config.cfg.reload then
+      --[[
+      Check the file modification time of each servlet to see if a reload is necessary.
+      --]]
       for path, servlet in pairs(config.servlets) do 
         local stat_tbl = stat.stat(servlet.path)
         if stat_tbl and servlet.file_modified_time < stat_tbl.st_mtime then
@@ -147,12 +149,6 @@ function main.parent_loop()
           end
           while (wait.wait()) do
             -- Wait for children to exit.
-          end
-          -- TODO: investigate FD_CLOEXEC to eliminate the code below
-          unistd.close(read_pipe)
-          unistd.close(write_pipe)
-          for _, fd in ipairs(config.listenfds) do
-            unistd.close(fd)
           end
           --[[
           Example arguments for the call below:

@@ -6,8 +6,13 @@ local fcntl = require("posix.fcntl")
 local signal = require("posix.signal")
 
 function util.set_nonblocking(fd)
-  local current_flags = fcntl.fcntl(fd, fcntl.F_GETFL)
-  fcntl.fcntl(fd, fcntl.F_SETFL, bit32.bor(current_flags, fcntl.O_NONBLOCK))
+  local current_flags = assert(fcntl.fcntl(fd, fcntl.F_GETFL))
+  assert(fcntl.fcntl(fd, fcntl.F_SETFL, bit32.bor(current_flags, fcntl.O_NONBLOCK)))
+end
+
+function util.set_close_on_exec(fd)
+  local current_flags = assert(fcntl.fcntl(fd, fcntl.F_GETFD))
+  assert(fcntl.fcntl(fd, fcntl.F_SETFD, bit32.bor(current_flags, fcntl.FD_CLOEXEC)))
 end
 
 function util.fgets(length, file)

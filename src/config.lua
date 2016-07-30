@@ -53,6 +53,7 @@ function config.listen(str)
     family = socket.AF_UNSPEC, socktype = socket.SOCK_STREAM}
   ))
   local fd = assert(socket.socket(addrinfo[1].family, socket.SOCK_STREAM, 0))
+  util.set_close_on_exec(fd)
   assert(socket.setsockopt(fd, socket.SOL_SOCKET, socket.SO_REUSEADDR, 1))
   assert(socket.bind(
     fd, {family = addrinfo[1].family, addr = addrinfo[1].addr, port = port}
@@ -159,9 +160,11 @@ function config.load_servlet(path, route)
 end
 
 --[[
-Automatically reload the server when a servlet is modified.
+Automatically reload the server when a servlet is modified. This is useful for 
+development.
 
-This is useful for development.
+--Example:
+reload "on"
 --]]
 function config.reload(str)
   if str == "on" then
