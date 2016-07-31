@@ -3,23 +3,24 @@
 #![crate_type = "dylib"]
 
 #[path="../../api/rust/modserver.rs"]
-mod modserver;
+pub mod modserver;
 use modserver::*;
-
-use std::ffi::{CString};
 
 #[no_mangle]
 pub extern "C" fn run(s: *mut Servlet) -> u32 {
-  unsafe {
-    set_status(s, 200);
-    let key = CString::new("Content-Type").unwrap();
-    let value = CString::new("text/plain; charset=UTF-8").unwrap();
-    set_header(s, key.as_ptr(), value.as_ptr());
-    rflush(s);
-    let format = CString::new("rprintf: %i %i\n").unwrap();
-    rprintf(s, format.as_ptr(), 42, 24);
+  set_status(s, 200);
+  set_header(s, "Content-Type", "text/plain; charset=UTF-8");
+  match get_arg(s, "arg") {
+    Some(x) => { rwrite(s, x.into_bytes()); },
+    None  => { }
   }
+  let method = get_method(s);
+  let bytes = method.into_bytes();
+  rwrite(s, bytes);
+  match get_header(s, "User-Agent") {
+    Some(x) => { rwrite(s, x.into_bytes()); },
+    None  => { }
+  }
+  rflush(s);
   return 0;
 }
-
-// https://doc.rust-lang.org/std/ffi/struct.CStr.html

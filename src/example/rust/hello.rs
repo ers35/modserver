@@ -3,17 +3,13 @@
 #![crate_type = "dylib"]
 
 #[path="../../api/rust/modserver.rs"]
-mod modserver;
+pub mod modserver;
 use modserver::*;
-
-use std::ffi::{CString};
 
 #[no_mangle]
 pub extern "C" fn run(s: *mut Servlet) -> u32 {
-  let reply = "hello from Rust";
-  let creply = CString::new(reply).unwrap();
-  unsafe {
-    rwrite(s, creply.as_ptr(), reply.len());
-  }
+  let reply = String::from("hello from Rust");
+  let bytes = reply.into_bytes();
+  rwrite(s, bytes);
   return 0;
 }
