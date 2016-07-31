@@ -2,17 +2,19 @@ local http = {}
 
 local errno = require("posix.errno")
 local lpeg = require("lpeg")
--- adds locale entries into 'lpeg' table
 lpeg.locale(lpeg)
 local util = require("util")
 
+--[[
+Generate an HTTP parser with LPeg. The code below resembles the BNF in the RFC. See 
+http://www.inf.puc-rio.br/~roberto/lpeg/ for the LPeg documentation.
+--]]
 local parse = {}
 do
   local SP = lpeg.space ^ 0
   local CTL = lpeg.cntrl
   local HR = lpeg.P(string.char(9))
   local CLRF = lpeg.P("\r\n")
-  -- https://tools.ietf.org/html/rfc2616#section-5.1.1
   local method =
   (
     lpeg.C("OPTIONS") + 
@@ -24,14 +26,10 @@ do
     lpeg.C("TRACE") + 
     lpeg.C("CONNECT")
   )
-  -- https://tools.ietf.org/html/rfc2396
   local request_uri = lpeg.C(lpeg.P("/") * ((lpeg.alnum + lpeg.punct) ^ 0))
   local HTTP_version = 
-  -- https://tools.ietf.org/html/rfc2616#section-5.1
-  -- https://tools.ietf.org/html/rfc7230#section-3.1.1
     lpeg.C(  lpeg.P("HTTP/") * (lpeg.digit ^ 1) * lpeg.P(".") * (lpeg.digit ^ 1)  )
   local request_line = method * SP * request_uri * SP * HTTP_version * CLRF
-  -- https://tools.ietf.org/html/rfc2616#section-4.5
   local separators = lpeg.S([[=()<>@,;:\<>/[]?={}]])
   -- "If patt is a character set, 1 - patt is its complement."
   local token = lpeg.C(  (1 - (separators + CTL + " " + HR)) ^ 1  )
@@ -173,8 +171,10 @@ function http.write_chunk(file, chunk)
   end
 end
 
--- https://tools.ietf.org/html/rfc2616#section-10
--- http://www.iana.org/assignments/http-status-codes/http-status-codes.xhtml
+--[[
+https://tools.ietf.org/html/rfc2616#section-10
+http://www.iana.org/assignments/http-status-codes/http-status-codes.xhtml
+--]]
 http.reason_phrase = {
   [100] = "Continue",
   [101] = "Switching Protocols",
@@ -432,3 +432,9 @@ if os.getenv("TEST") == "1" then
 end
 
 return http
+
+--[[
+https://tools.ietf.org/html/rfc2396
+https://tools.ietf.org/html/rfc2616
+https://tools.ietf.org/html/rfc7230
+--]]

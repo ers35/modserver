@@ -16,7 +16,7 @@ int run(servlet *s)
 
 ## Building
 `modserver` builds on at least the following platforms: DragonFly BSD, FreeBSD, 
-GNU/Linux, Illumos, Mac OS X, NetBSD, and OpenBSD. Run `make` or `gmake` depending on the 
+GNU/Linux, illumos, Mac OS X, NetBSD, and OpenBSD. Run `make` or `gmake` depending on the 
 platform.
 
 Individual modules may fail to build if their dependencies are not found. This is normal 

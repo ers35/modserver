@@ -85,7 +85,7 @@ function main.parent_loop()
     end
     
     --[[
-    Wait up to one second for messages from children.
+    Wait for messages from children until the poll timeout is reached.
     --]]
     local ret = poll.poll(poll_fds, config.cfg.poll_timeout)
     if ret and ret > 0 then
