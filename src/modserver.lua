@@ -14,6 +14,7 @@ local socket = require("posix.sys.socket")
 local stat = require("posix.sys.stat")
 local stdio = require("posix.stdio")
 local poll = require("posix.poll")
+local time = require("posix.time")
 local unistd = require("posix.unistd")
 local wait = require("posix.sys.wait")
 
@@ -154,6 +155,12 @@ function main.parent_loop()
           while (wait.wait()) do
             -- Wait for children to exit.
           end
+          --[[
+          FIXME: find a better way to accomplish this 
+          Sleep before restarting to avoid opening the servlet while it is still being
+          written to disk.
+          --]]
+          time.nanosleep({tv_sec = 0, tv_nsec = 100000000})
           --[[
           Example arguments for the call below:
           unistd.execp("./modserver", {[0] = "./modserver", [1] = "config.conf"})
