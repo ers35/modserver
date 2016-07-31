@@ -27,9 +27,9 @@ do
   -- https://tools.ietf.org/html/rfc2396
   local request_uri = lpeg.C(lpeg.P("/") * ((lpeg.alnum + lpeg.punct) ^ 0))
   local HTTP_version = 
-    lpeg.C(  lpeg.P("HTTP/") * (lpeg.digit ^ 0) * lpeg.P(".") * (lpeg.digit ^ 0)  )
   -- https://tools.ietf.org/html/rfc2616#section-5.1
   -- https://tools.ietf.org/html/rfc7230#section-3.1.1
+    lpeg.C(  lpeg.P("HTTP/") * (lpeg.digit ^ 1) * lpeg.P(".") * (lpeg.digit ^ 1)  )
   local request_line = method * SP * request_uri * SP * HTTP_version * CLRF
   -- https://tools.ietf.org/html/rfc2616#section-4.5
   local separators = lpeg.S([[=()<>@,;:\<>/[]?={}]])
@@ -266,6 +266,8 @@ if os.getenv("TEST") == "1" then
     assert(method == "GET")
     assert(uri == "/foo?key")
     assert(version == "HTTP/1.1")
+    method, uri, version = http.parse_request_line("GET /foo?key HTTP/.\r\n")
+    assert(method == nil and uri == nil and version == nil)
   end
   
   if true then
