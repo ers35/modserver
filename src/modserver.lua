@@ -332,7 +332,7 @@ if os.getenv("TEST") == "1" then
     -- The test process.
     -- local inspect = require("inspect")
     local function connect()
-      local fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+      local fd = assert(socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0))
       local addr = socket.getaddrinfo("127.0.0.1", "8080", {
         family = socket.AF_INET, socktype = socket.SOCK_STREAM 
       })
