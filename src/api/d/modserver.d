@@ -1,5 +1,3 @@
-module api;
-
 extern (C)
 {
   struct servlet;
