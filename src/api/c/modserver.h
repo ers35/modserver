@@ -1,11 +1,11 @@
 #ifndef MODSERVER_H
 #define MODSERVER_H
 
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <stddef.h>
 
 /*
 Each API function takes an opaque pointer. Do not free this.
