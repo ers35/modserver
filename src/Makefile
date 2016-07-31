@@ -144,9 +144,9 @@ example/nim/hello.nim.so: example/nim/hello.nim
 example/nim/test.nim.so: example/nim/test.nim
 	nim compile --app:lib -p=api/nim --out=$@ $+ || true
 example/rust/hello.rs.so: example/rust/hello.rs
-	rustc -C prefer-dynamic $+ -o $@ || true
+	rustc -C prefer-dynamic -C link-args="$(LDFLAGS)" $+ -o $@ || true
 example/rust/test.rs.so: example/rust/test.rs
-	rustc -C prefer-dynamic $+ -o $@ || true
+	rustc -C prefer-dynamic -C link-args="$(LDFLAGS)" $+ -o $@ || true
 
 # Commands
 
