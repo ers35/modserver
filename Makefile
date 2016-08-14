@@ -1,5 +1,5 @@
 default:
-	cd src && $(MAKE) modserver
+	cd src && $(MAKE) all
 run:
 	cd src && $(MAKE) run
 test:

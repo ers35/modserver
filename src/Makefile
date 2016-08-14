@@ -1,4 +1,4 @@
-default: modserver
+default: all
 
 # $@ is the target name
 # $+ are the names of all dependencies
@@ -20,18 +20,18 @@ endif
 
 LUASRC = dep/lua-5.2.4/src
 
-all: \
+all: modserver example
+
+dep: \
 	$(LUASRC)/liblua.a \
 	$(LUASRC)/lua \
 	dep/posix.a \
 	dep/lpeg/lpeg.a \
 	api/c/modserver.o \
-	cutil.a \
-	module \
-	example
+	cutil.a
 
 LUASTATIC = @./$(LUASRC)/lua dep/luastatic.lua
-modserver: all
+modserver: dep module
 	$(LUASTATIC) modserver.lua api/lua/modserver.lua config.lua \
 	 http.lua module/*.lua util.lua \
 		api/c/modserver.o dep/posix.a dep/lpeg/lpeg.a cutil.a \
@@ -150,9 +150,9 @@ example/rust/test.rs.so: example/rust/test.rs
 
 # Commands
 
-run: modserver
+run: all
 	./modserver config.conf
-test: modserver
+test: all
 	TEST=1 ./modserver config.conf
 INSTALL_TOP = /tmp/opt/modserver
 install: modserver
