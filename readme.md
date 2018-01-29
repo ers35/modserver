@@ -78,10 +78,6 @@ processes. A crash while handling a request does not affect other requests. The 
 reports the crash and continues running. One tradeoff with this design is the memory 
 usage increases with the number of concurrent requests as more processes are created.
 
-## Status
-`modserver` is in active development. Some language modules are more developed than 
-others. This will improve over time.
-
 ## Feedback
 Email [eric@ers35.com](mailto:eric@ers35.com) or post a GitHub issue to give feedback.
 
